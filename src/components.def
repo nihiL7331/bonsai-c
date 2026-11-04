@@ -1,0 +1,60 @@
+/*
+    defines components available in code.
+    each component is written as follows:
+
+        COMP(name)
+            FIELD(...)
+            FIELD(...)
+            ...
+        COMP_END(name)
+
+    there are two possible options for `FIELD`:
+
+    for scalar values:
+
+        FIELD(type, name,  default_value)   declaration
+              type  name = default_value;   matching C code
+
+    for arrays:
+
+        FIELD(type, name, count,  default_value)    declaration
+              type  name[count] = default_value;    matching C code
+
+    `type` is a primitive C type. all of the values within components MUST be stack-allocated.
+*/
+
+COMP(trans2d)
+    FIELD(float, x,     0.0f)
+    FIELD(float, y,     0.0f)
+    FIELD(float, rot,   0.0f)
+    FIELD(float, scale, 1.0f)
+COMP_END(trans2d)
+
+COMP(sprite2d)
+    FIELD(uint16_t, id,        0x0000)
+    FIELD(uint8_t,  layer,     0x00)
+    FIELD(uint8_t,  flip_mask, 0x00)
+    FIELD(uint32_t, color,     0xFFFFFFFF)
+COMP_END(sprite2d)
+
+COMP(collider2d)
+    FIELD(float,    half_w,     0.0f)
+    FIELD(float,    half_h,     0.0f)
+    FIELD(float,    off_x,      0.0f)
+    FIELD(float,    off_y,      0.0f)
+    FIELD(uint32_t, mask,       0x00000001)
+    FIELD(bool,     trigger,    false)
+    FIELD(uint8_t,  _pad,    3, {0})
+COMP_END(collider2d)
+
+COMP(rb2d)
+    FIELD(float, vel_x,       0.0f)
+    FIELD(float, vel_y,       0.0f)
+    FIELD(float, angular_vel, 0.0f)
+    FIELD(float, inv_mass,    1.0f)
+    FIELD(float, drag,        0.0f)
+COMP_END(rb2d)
+
+COMP(tag)
+    FIELD(char, name, 32, "")
+COMP_END(tag)
