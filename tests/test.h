@@ -12,7 +12,7 @@ static uint32_t s_tests_run    = 0;
 static uint32_t s_tests_failed = 0;
 
 #define TEST_CASE_SCOPE_LEN 20
-#define TEST_CASE_DESC_LEN  40
+#define TEST_CASE_DESC_LEN  50
 
 static inline int test_use_color(void) {
     static int cached = -1;
