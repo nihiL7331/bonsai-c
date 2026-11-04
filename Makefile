@@ -7,6 +7,7 @@ BUILD_DIR = build
 
 TEST_SRCS = $(wildcard $(TEST_DIR)/*.c)
 TEST_BINS = $(patsubst $(TEST_DIR)/%.c, $(BUILD_DIR)/%, $(TEST_SRCS))
+SRC_SRCS  = $(wildcard src/*.c)
 
 .PHONY: all test clean
 
@@ -18,8 +19,8 @@ all: test
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-$(BUILD_DIR)/%: $(TEST_DIR)/%.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS_DEBUG) $< -o $@ -lm
+$(BUILD_DIR)/%: $(TEST_DIR)/%.c $(SRC_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS_DEBUG) $^ -o $@ -lm
 
 test: $(TEST_BINS)
 	@for t in $(TEST_BINS); do 								   \
