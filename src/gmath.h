@@ -83,16 +83,16 @@ DEF_VEC_OPS(vec3i, int32_t, 3)
 DEF_VEC_OPS(vec4f, float,   4)
 DEF_VEC_OPS(vec4i, int32_t, 4)
 
-#define DEF_FLOAT_OPS(NAME)                                                                        \
+#define DEF_VEC_FLOAT_OPS(NAME)                                                                        \
     static inline NAME NAME##_norm(NAME v) {                                                       \
         float l = NAME##_len(v);                                                                   \
         return l > 0.0f ? NAME##_scale(v, 1.0f / l) : (NAME){0};                                   \
     }                                                                                              \
     static inline NAME NAME##_dir(NAME from, NAME to) { return NAME##_norm(NAME##_sub(to, from)); }
 
-DEF_FLOAT_OPS(vec2f)
-DEF_FLOAT_OPS(vec3f)
-DEF_FLOAT_OPS(vec4f)
+DEF_VEC_FLOAT_OPS(vec2f)
+DEF_VEC_FLOAT_OPS(vec3f)
+DEF_VEC_FLOAT_OPS(vec4f)
 
 #define DEF_VEC_CROSS2(NAME, T)                                                                    \
     static inline T NAME##_cross(NAME a, NAME b) {                                                 \
