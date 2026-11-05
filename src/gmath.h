@@ -183,6 +183,40 @@ DEF_VEC_CROSS3(vec3i)
 DEF_MAT_OPS(mat3f, vec3f, 3)
 DEF_MAT_OPS(mat4f, vec4f, 4)
 
+static inline mat3f mat3f_from_mat4f(mat4f m) {
+    return (mat3f){ .col = {
+        { .x = m.col[0].x, .y = m.col[0].y, .z = m.col[0].z },
+        { .x = m.col[1].x, .y = m.col[1].y, .z = m.col[1].z },
+        { .x = m.col[2].x, .y = m.col[2].y, .z = m.col[2].z },
+    } };
+}
+
+static inline float mat3f_det(mat3f m) {
+    return m.col[0].x * (m.col[1].y * m.col[2].z - m.col[1].z * m.col[2].y) -
+           m.col[1].x * (m.col[0].y * m.col[2].z - m.col[0].z * m.col[2].y) +
+           m.col[2].x * (m.col[0].y * m.col[1].z - m.col[0].z * m.col[1].y);
+}
+
+static inline mat3f mat3f_inv(mat3f m) {
+    float c00 =  (m.col[1].y * m.col[2].z - m.col[2].y * m.col[1].z);
+    float c10 = -(m.col[1].x * m.col[2].z - m.col[2].x * m.col[1].z);
+    float c20 =  (m.col[1].x * m.col[2].y - m.col[2].x * m.col[1].y);
+
+    float det = m.col[0].x * c00 + m.col[0].y * c10 + m.col[0].z * c20;
+    if (fabsf(det) <= 1e-6f) return (mat3f){0};
+
+    float inv_det = 1.0f / det;
+    return (mat3f){ .col = {
+        { .x = c00 * inv_det, .y = -(m.col[0].y * m.col[2].z - m.col[2].y * m.col[0].z) * inv_det, .z =  (m.col[0].y * m.col[1].z - m.col[1].y * m.col[0].z) * inv_det },
+        { .x = c10 * inv_det, .y =  (m.col[0].x * m.col[2].z - m.col[2].x * m.col[0].z) * inv_det, .z = -(m.col[0].x * m.col[1].z - m.col[1].x * m.col[0].z) * inv_det },
+        { .x = c20 * inv_det, .y = -(m.col[0].x * m.col[2].y - m.col[2].x * m.col[0].y) * inv_det, .z =  (m.col[0].x * m.col[1].y - m.col[1].x * m.col[0].y) * inv_det },
+    } };
+}
+
+static inline mat3f mat3f_normal(mat4f model) {
+    return mat3f_transp(mat3f_inv(mat3f_from_mat4f(model)));
+}
+
 static inline mat4f mat4f_trans(vec3f v) {
     mat4f m    = mat4f_id();
     m.col[3].x = v.x;
