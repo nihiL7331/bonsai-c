@@ -24,6 +24,12 @@ VEC3_TYPEDEF(vec3i, int32_t)
 VEC4_TYPEDEF(vec4f, float)
 VEC4_TYPEDEF(vec4i, int32_t)
 
+typedef union mat3f {
+    float v[9];
+    float cols[3][3];
+    vec3f col[3];
+} mat3f;
+
 typedef union mat4f {
     float v[16];
     float cols[4][4];
@@ -98,7 +104,7 @@ DEF_FLOAT_OPS(vec4f)
 #define vec_dot(a, b)   _VEC_GEN_BINARY(dot, a, b)
 
 #define _VEC_GEN_UNARY(FN, v) _Generic((v), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN, vec4f: vec4f_##FN, vec4i: vec4i_##FN)((v))
-
+    
 #define vec_len_sq(v) _VEC_GEN_UNARY(len_sq, v)
 #define vec_len(v)    _VEC_GEN_UNARY(len, v)
 
@@ -113,6 +119,38 @@ DEF_FLOAT_OPS(vec4f)
 /* ============================================================================================== */
 /* >MATRIX LOGIC                                                                                  */
 /* ============================================================================================== */
+
+#define DEF_MAT_OPS(NAME, VEC_T, DIM)                                                              \
+    static inline NAME NAME##_id(void) {                                                           \
+        NAME m = {0};                                                                              \
+        for (size_t i = 0; i < (DIM); ++i) m.cols[i][i] = 1.0f;                                    \
+        return m;                                                                                  \
+    }                                                                                              \
+    static inline VEC_T NAME##_mul_vec(NAME m, VEC_T v) {                                          \
+        VEC_T r = {0};                                                                             \
+        for (size_t col = 0; col < (DIM); ++col) {                                                 \
+            float s = v.v[col];                                                                    \
+            for (size_t row = 0; row < (DIM); ++row)                                               \
+                r.v[row] += m.cols[col][row] * s;                                                  \
+        }                                                                                          \
+        return r;                                                                                  \
+    }                                                                                              \
+    static inline NAME NAME##_mul(NAME a, NAME b) {                                                \
+        NAME r = {0};                                                                              \
+        for (size_t col = 0; col < (DIM); ++col)                                                   \
+            r.col[col] = NAME##_mul_vec(a, b.col[col]);                                            \
+        return r;                                                                                  \
+    }                                                                                              \
+    static inline NAME NAME##_transp(NAME m) {                                                     \
+        NAME r = {0};                                                                              \
+        for (size_t col = 0; col < (DIM); ++col)                                                   \
+            for (size_t row = 0; row < (DIM); ++row)                                               \
+                r.cols[col][row] = m.cols[row][col];                                               \
+        return r;                                                                                  \
+    }
+
+DEF_MAT_OPS(mat3f, vec3f, 3)
+DEF_MAT_OPS(mat4f, vec4f, 4)
 
 static inline mat4f mat4f_id(void) {
     return (mat4f){ .v = {
