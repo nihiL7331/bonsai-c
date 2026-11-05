@@ -94,6 +94,26 @@ DEF_FLOAT_OPS(vec2f)
 DEF_FLOAT_OPS(vec3f)
 DEF_FLOAT_OPS(vec4f)
 
+#define DEF_VEC_CROSS2(NAME, T)                                                                    \
+    static inline T NAME##_cross(NAME a, NAME b) {                                                 \
+        return (T)(a.x * b.y - a.y * b.x);                                                         \
+    }
+
+#define DEF_VEC_CROSS3(NAME)                                                                       \
+    static inline NAME NAME##_cross(NAME a, NAME b) {                                              \
+        return (NAME){                                                                             \
+            .x = a.y * b.z - a.z * b.y,                                                            \
+            .y = a.z * b.x - a.x * b.z,                                                            \
+            .z = a.x * b.y - a.y * b.x,                                                            \
+        };                                                                                         \
+    }
+
+DEF_VEC_CROSS2(vec2f, float)
+DEF_VEC_CROSS2(vec2i, int32_t)
+
+DEF_VEC_CROSS3(vec3f)
+DEF_VEC_CROSS3(vec3i)
+
 #define _VEC_GEN_BINARY(FN, a, b) _Generic((a), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN, vec4f: vec4f_##FN, vec4i: vec4i_##FN)((a), (b))
 
 #define vec_add(a, b)   _VEC_GEN_BINARY(add, a, b)
@@ -151,15 +171,6 @@ DEF_FLOAT_OPS(vec4f)
 
 DEF_MAT_OPS(mat3f, vec3f, 3)
 DEF_MAT_OPS(mat4f, vec4f, 4)
-
-static inline mat4f mat4f_id(void) {
-    return (mat4f){ .v = {
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f, 
-    } };
-}
 
 static inline mat4f mat4f_trans(vec3f v) {
     mat4f m    = mat4f_id();
@@ -226,17 +237,6 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
             .y = m.col[0].y * v.x + m.col[1].y * v.y + m.col[2].y * v.z + m.col[3].y * v.w,
             .z = m.col[0].z * v.x + m.col[1].z * v.y + m.col[2].z * v.z + m.col[3].z * v.w,
             .w = m.col[0].w * v.x + m.col[1].w * v.y + m.col[2].w * v.z + m.col[3].w * v.w,
-        };
-    }
-
-    static inline mat4f mat4f_mul(mat4f a, mat4f b) {
-        return (mat4f){
-            .col = {
-                mat4f_mul_vec4f(a, b.col[0]),
-                mat4f_mul_vec4f(a, b.col[1]),
-                mat4f_mul_vec4f(a, b.col[2]),
-                mat4f_mul_vec4f(a, b.col[3]),
-            }
         };
     }
 
