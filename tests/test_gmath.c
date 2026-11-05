@@ -190,5 +190,89 @@ int main(void) {
         TEST_ASSERT(px == 160 && py == 90, "center exp (160, 90), got (%d, %d)", px, py);
     } TEST_CASE_END();
 
+    TEST_CASE("vec_cross", "computes 3D cross product and 2D signed area") {
+        vec3f x = { .x = 1.0f, .y = 0.0f, .z = 0.0f };
+        vec3f y = { .x = 0.0f, .y = 1.0f, .z = 0.0f };
+        vec3f z = vec_cross(x, y);
+        TEST_ASSERT(feq(z.x, 0.0f) && feq(z.y, 0.0f) && feq(z.z, 1.0f), "exp (0, 0, 1), got (%f, %f, %f)", z.x, z.y, z.z);
+
+        vec3i xi = { .x = 2, .y = 0, .z = 0 };
+        vec3i yi = { .x = 0, .y = 3, .z = 0 };
+        vec3i zi = vec_cross(xi, yi);
+        TEST_ASSERT(zi.x == 0 && zi.y == 0 && zi.z == 6, "exp (0, 0, 6), got (%d, %d, %d)", zi.x, zi.y, zi.z);
+
+        vec2f a = { .x = 1.0f, .y = 0.0f };
+        vec2f b = { .x = 0.0f, .y = 1.0f };
+        float area = vec_cross(a, b);
+        TEST_ASSERT(feq(area, 1.0f), "exp 1.0, got %f", area);
+
+        vec2i ai = { .x = 4, .y = 1 };
+        vec2i bi = { .x = 2, .y = 3 };
+        int32_t areai = vec_cross(ai, bi);
+        TEST_ASSERT(areai == 10, "exp 10, got %d", areai);
+    } TEST_CASE_END();
+
+    TEST_CASE("mat3f_inv", "verifies matrix inversion produces identity") {
+        mat3f m = { .col = {
+            { .x = 1.0f, .y = 2.0f, .z = 3.0f },
+            { .x = 0.0f, .y = 1.0f, .z = 4.0f },
+            { .x = 5.0f, .y = 6.0f, .z = 0.0f },
+        } };
+        mat3f inv = mat3f_inv(m);
+        mat3f id  = mat3f_mul(m, inv);
+
+        for (int c = 0; c < 3; ++c) {
+            for (int r = 0; r < 3; ++r) {
+                float exp = (c == r) ? 1.0f : 0.0f;
+                TEST_ASSERT(feq(id.cols[c][r], exp), "col %d row %d exp %f, got %f", c, r, exp, id.cols[c][r]);
+            }
+        }
+    } TEST_CASE_END();
+
+    TEST_CASE("quatf_rotate", "rotates vector by 90 deg around Z") {
+        vec3f z_axis = { .x = 0.0f, .y = 0.0f, .z = 1.0f };
+        quatf q = quatf_axis_angle(z_axis, HALF_PI);
+
+        vec3f v = { .x = 1.0f, .y = 0.0f, .z = 0.0f };
+        vec3f rotated = quatf_mul_vec3(q, v);
+        TEST_ASSERT(feq(rotated.x, 0.0f) && feq(rotated.y, 1.0f) && feq(rotated.z, 0.0f),
+                    "exp (0, 1, 0), got (%f, %f, %f)", rotated.x, rotated.y, rotated.z);
+
+        mat3f m3 = quatf_to_mat3f(q);
+        vec3f m_rotated = mat3f_mul_vec(m3, v);
+        TEST_ASSERT(feq(m_rotated.x, 0.0f) && feq(m_rotated.y, 1.0f) && feq(m_rotated.z, 0.0f),
+                    "matrix exp (0, 1, 0), got (%f, %f, %f)", m_rotated.x, m_rotated.y, m_rotated.z);
+
+        mat4f m4 = quatf_to_mat4f(q);
+        vec4f v4 = { .x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f };
+        vec4f m4_rotated = mat4f_mul_vec4f(m4, v4);
+        TEST_ASSERT(feq(m4_rotated.x, 0.0f) && feq(m4_rotated.y, 1.0f) && feq(m4_rotated.z, 0.0f) && feq(m4_rotated.w, 1.0f),
+                    "mat4 exp (0, 1, 0, 1), got (%f, %f, %f, %f)", m4_rotated.x, m4_rotated.y, m4_rotated.z, m4_rotated.w);
+    } TEST_CASE_END();
+
+    TEST_CASE("quatf_slerp", "interpolates orientation at midpoint (45 deg)") {
+        vec3f z_axis = { .x = 0.0f, .y = 0.0f, .z = 1.0f };
+        quatf q0 = quatf_id();
+        quatf q1 = quatf_axis_angle(z_axis, HALF_PI);
+
+        quatf mid = quatf_slerp(q0, q1, 0.5f);
+        vec3f v   = { .x = 1.0f, .y = 0.0f, .z = 0.0f };
+        vec3f res = quatf_mul_vec3(mid, v);
+
+        float cos_45 = cosf(HALF_PI * 0.5f);
+        float sin_45 = sinf(HALF_PI * 0.5f);
+        TEST_ASSERT(feq(res.x, cos_45) && feq(res.y, sin_45) && feq(res.z, 0.0f),
+                    "slerp midpoint exp (%f, %f, 0), got (%f, %f, %f)", cos_45, sin_45, res.x, res.y, res.z);
+    } TEST_CASE_END();
+
+    TEST_CASE("aabb3f_inter", "verifies 3D box overlap and separation on Z axis") {
+        aabb3f a = aabb_pos_size(((vec3f){ .x = 0.0f, .y = 0.0f, .z = 0.0f }), ((vec3f){ .x = 10.0f, .y = 10.0f, .z = 10.0f }));
+        aabb3f b = aabb_pos_size(((vec3f){ .x = 5.0f, .y = 5.0f, .z = 5.0f }), ((vec3f){ .x = 10.0f, .y = 10.0f, .z = 10.0f }));
+        aabb3f c = aabb_pos_size(((vec3f){ .x = 5.0f, .y = 5.0f, .z = 20.0f}), ((vec3f){ .x = 10.0f, .y = 10.0f, .z = 10.0f }));
+
+        TEST_ASSERT( aabb_inter(a, b), "overlapping 3D boxes exp true");
+        TEST_ASSERT(!aabb_inter(a, c), "Z-separated 3D boxes exp false");
+    } TEST_CASE_END();
+
     TEST_END();
 }
