@@ -4,9 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef uint64_t    entity_handle_t;
-#define ENTITY_NULL ((entity_handle_t)0ULL)
-
 #define _FIELD_SELECT(_1, _2, _3, _4, NAME, ...) NAME
 
 /* ============================================================================================== */
