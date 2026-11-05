@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core.h"
+
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -28,11 +30,14 @@ typedef union mat4f {
     vec4f col[4];
 } mat4f;
 
-typedef union aabbf {
-    struct { vec2f min,          max;          };
-    struct { float min_x, min_y, max_x, max_y; };
-    float  v[4];
-} aabbf;
+#define AABB2_TYPEDEF(NAME, VEC_T, T) typedef union NAME { struct { VEC_T min, max; }; struct { T min_x, min_y,        max_x, max_y;        }; T v[4]; } NAME;
+#define AABB3_TYPEDEF(NAME, VEC_T, T) typedef union NAME { struct { VEC_T min, max; }; struct { T min_x, min_y, min_z, max_x, max_y, max_z; }; T v[6]; } NAME;
+
+AABB2_TYPEDEF(aabb2f, vec2f, float)
+AABB2_TYPEDEF(aabb2i, vec2i, int32_t)
+
+AABB3_TYPEDEF(aabb3f, vec3f, float)
+AABB3_TYPEDEF(aabb3i, vec3i, int32_t)
 
 /* ============================================================================================== */
 /* >VECTOR LOGIC                                                                                  */
@@ -203,36 +208,55 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
 /* >AABB LOGIC                                                                                    */
 /* ============================================================================================== */
 
-static inline aabbf aabbf_pos_size(vec2f pos, vec2f size) {
-    return (aabbf){ .min = pos, .max = vec_add(pos, size) };
-}
+#define DEF_AABB_OPS(NAME, VEC_T, DIM)                                                             \
+    static inline NAME NAME##_pos_size(VEC_T pos, VEC_T size) {                                    \
+        return (NAME){ .min = pos, .max = VEC_T##_add(pos, size) };                                \
+    }                                                                                              \
+    static inline NAME NAME##_center_half(VEC_T center, VEC_T half) {                              \
+        return (NAME){ .min = VEC_T##_sub(center, half), .max = VEC_T##_add(center, half) };       \
+    }                                                                                              \
+    static inline VEC_T NAME##_size(NAME b) {                                                      \
+        return VEC_T##_sub(b.max, b.min);                                                          \
+    }                                                                                              \
+    static inline bool NAME##_inter(NAME a, NAME b) {                                              \
+        for (size_t i = 0; i < (DIM); ++i)                                                         \
+            if (a.min.v[i] > b.max.v[i] || a.max.v[i] < b.min.v[i]) return false;                  \
+        return true;                                                                               \
+    }                                                                                              \
+    static inline bool NAME##_contains(NAME b, VEC_T p) {                                          \
+        for (size_t i = 0; i < (DIM); ++i)                                                         \
+            if (p.v[i] < b.min.v[i] || p.v[i] > b.max.v[i]) return false;                          \
+        return true;                                                                               \
+    }                                                                                              \
+    static inline NAME NAME##_merge(NAME a, NAME b) {                                              \
+        NAME r = (NAME){0};                                                                        \
+        for (size_t i = 0; i < (DIM); ++i) {                                                       \
+            r.min.v[i] = MIN(a.min.v[i], b.min.v[i]);                                              \
+            r.max.v[i] = MAX(a.max.v[i], b.max.v[i]);                                              \
+        }                                                                                          \
+        return r;                                                                                  \
+    }
 
-static inline aabbf aabbf_center_half(vec2f center, vec2f half_size) {
-    return (aabbf){ .min = vec_sub(center, half_size), .max = vec_add(center, half_size) };
-}
+#define DEF_AABB_FLOAT_CENTER(NAME, VEC_T)                                                         \
+    static inline VEC_T NAME##_center(NAME b) {                                                    \
+        return VEC_T##_scale(VEC_T##_add(b.min, b.max), 0.5f);                                     \
+    }
 
-static inline vec2f aabbf_size(aabbf b) {
-    return vec_sub(b.max, b.min);
-} 
+DEF_AABB_OPS(aabb2f, vec2f, 2)
+DEF_AABB_FLOAT_CENTER(aabb2f, vec2f)
+DEF_AABB_OPS(aabb2i, vec2i, 2)
 
-static inline vec2f aabbf_center(aabbf b) {
-    return vec_scale(vec_add(b.min, b.max), 0.5f);
-}
+DEF_AABB_OPS(aabb3f, vec3f, 3)
+DEF_AABB_FLOAT_CENTER(aabb3f, vec3f)
+DEF_AABB_OPS(aabb3i, vec3i, 3)
 
-static inline bool aabbf_inter(aabbf a, aabbf b) {
-    return a.min_x <= b.max_x && a.max_x >= b.min_x && a.min_y <= b.max_y && a.max_y >= b.min_y;
-}
-
-static inline bool aabbf_contains(aabbf b, vec2f p) {
-    return p.x >= b.min_x && p.x <= b.max_x && p.y >= b.min_y && p.y <= b.max_y;
-}
-
-static inline aabbf aabbf_merge(aabbf a, aabbf b) {
-    return (aabbf){
-        .min_x = fminf(a.min_x, b.min_x), .min_y = fminf(a.min_y, b.min_y),
-        .max_x = fmaxf(a.max_x, b.max_x), .max_y = fmaxf(a.max_y, b.max_y),
-    };
-}
+#define aabb_size(b)                   _Generic((b),      aabb2f: aabb2f_size,        aabb2i: aabb2i_size,        aabb3f: aabb3f_size,         aabb3i: aabb3i_size)((b))
+#define aabb_center(b)                 _Generic((b),      aabb2f: aabb2f_center,                                  aabb3f: aabb3f_center                           )((b))
+#define aabb_inter(a, b)               _Generic((a),      aabb2f: aabb2f_inter,       aabb2i: aabb2i_inter,       aabb3f: aabb3f_inter,        aabb3i: aabb3i_inter)((a), (b))
+#define aabb_contains(b, p)            _Generic((b),      aabb2f: aabb2f_contains,    aabb2i: aabb2i_contains,    aabb3f: aabb3f_contains,     aabb3i: aabb3i_contains)((b), (p))
+#define aabb_merge(a, b)               _Generic((a),      aabb2f: aabb2f_merge,       aabb2i: aabb2i_merge,       aabb3f: aabb3f_merge,        aabb3i: aabb3i_merge)((a), (b))
+#define aabb_pos_size(pos, size)       _Generic((pos),    vec2f:  aabb2f_pos_size,    vec2i:  aabb2i_pos_size,    vec3f:  aabb3f_pos_size,     vec3i:  aabb3i_pos_size)((pos), (size))
+#define aabb_center_half(center, half) _Generic((center), vec2f:  aabb2f_center_half, vec2i:  aabb2i_center_half, vec3f:  aabb3f_center_half,  vec3i:  aabb3i_center_half)((center), (half))
 
 /* ============================================================================================== */
 /* >CAPTURE LOGIC                                                                                 */

@@ -142,36 +142,36 @@ int main(void) {
     } TEST_CASE_END();
 
     TEST_CASE("aabbf_size_center", "calculates size and center accurately") {
-        aabbf box = aabbf_pos_size((vec2f){ .x = 10.0f, .y = 20.0f }, (vec2f){ .x = 30.0f, .y = 40.0f });
-        vec2f size = aabbf_size(box);
-        vec2f center = aabbf_center(box);
+        aabb2f box    = aabb_pos_size(((vec2f){ .x = 10.0f, .y = 20.0f }), ((vec2f){ .x = 30.0f, .y = 40.0f }));
+        vec2f  size   = aabb_size(box);
+        vec2f  center = aabb_center(box);
 
         TEST_ASSERT(feq(size.x,   30.0f) && feq(size.y, 40.0f),   "size exp (30, 40), got (%f, %f)",   size.x,   size.y);
         TEST_ASSERT(feq(center.x, 25.0f) && feq(center.y, 40.0f), "center exp (25, 40), got (%f, %f)", center.x, center.y);
     } TEST_CASE_END();
 
     TEST_CASE("aabbf_inter", "detects overlapping vs separated boxes") {
-        aabbf a = aabbf_pos_size((vec2f){ .x = 0.0f,  .y = 0.0f  }, (vec2f){ .x = 10.0f, .y = 10.0f });
-        aabbf b = aabbf_pos_size((vec2f){ .x = 5.0f,  .y = 5.0f  }, (vec2f){ .x = 10.0f, .y = 10.0f });
-        aabbf c = aabbf_pos_size((vec2f){ .x = 20.0f, .y = 20.0f }, (vec2f){ .x = 5.0f,  .y = 5.0f  });
+        aabb2f a = aabb_pos_size(((vec2f){ .x = 0.0f,  .y = 0.0f  }), ((vec2f){ .x = 10.0f, .y = 10.0f }));
+        aabb2f b = aabb_pos_size(((vec2f){ .x = 5.0f,  .y = 5.0f  }), ((vec2f){ .x = 10.0f, .y = 10.0f }));
+        aabb2f c = aabb_pos_size(((vec2f){ .x = 20.0f, .y = 20.0f }), ((vec2f){ .x = 5.0f,  .y = 5.0f  }));
 
-        TEST_ASSERT( aabbf_inter(a, b), "overlapping boxes exp true");
-        TEST_ASSERT(!aabbf_inter(a, c), "disjoint boxes exp false");
+        TEST_ASSERT( aabb_inter(a, b), "overlapping boxes exp true");
+        TEST_ASSERT(!aabb_inter(a, c), "disjoint boxes exp false");
     } TEST_CASE_END();
 
     TEST_CASE("aabbf_contains", "checks if point is inside bounding box") {
-        aabbf box = aabbf_pos_size((vec2f){ .x = 0.0f, .y = 0.0f }, (vec2f){ .x = 10.0f, .y = 10.0f });
-        vec2f inside = { .x = 5.0f, .y = 5.0f };
-        vec2f outside = { .x = 15.0f, .y = 5.0f };
+        aabb2f box     = aabb_pos_size(((vec2f){ .x = 0.0f, .y = 0.0f }), ((vec2f){ .x = 10.0f, .y = 10.0f }));
+        vec2f  inside  = { .x = 5.0f, .y = 5.0f };
+        vec2f  outside = { .x = 15.0f, .y = 5.0f };
 
-        TEST_ASSERT( aabbf_contains(box, inside),  "point inside exp true");
-        TEST_ASSERT(!aabbf_contains(box, outside), "point outside exp false");
+        TEST_ASSERT( aabb_contains(box, inside),  "point inside exp true");
+        TEST_ASSERT(!aabb_contains(box, outside), "point outside exp false");
     } TEST_CASE_END();
 
     TEST_CASE("aabbf_merge", "computes enclosing bounding box") {
-        aabbf a = aabbf_pos_size((vec2f){ .x = 0.0f, .y = 0.0f   }, (vec2f){ .x = 10.0f, .y = 10.0f });
-        aabbf b = aabbf_pos_size((vec2f){ .x = 20.0f, .y = 30.0f }, (vec2f){ .x = 5.0f,  .y = 5.0f  });
-        aabbf m = aabbf_merge(a, b);
+        aabb2f a = aabb_pos_size(((vec2f){ .x = 0.0f, .y = 0.0f   }), ((vec2f){ .x = 10.0f, .y = 10.0f }));
+        aabb2f b = aabb_pos_size(((vec2f){ .x = 20.0f, .y = 30.0f }), ((vec2f){ .x = 5.0f,  .y = 5.0f  }));
+        aabb2f m = aabb_merge(a, b);
 
         TEST_ASSERT(feq(m.min_x, 0.0f)  && feq(m.min_y, 0.0f),  "merge min exp (0, 0), got (%f, %f)",   m.min_x, m.min_y);
         TEST_ASSERT(feq(m.max_x, 25.0f) && feq(m.max_y, 35.0f), "merge max exp (25, 35), got (%f, %f)", m.max_x, m.max_y);
