@@ -136,6 +136,10 @@ DEF_VEC_CROSS3(vec3i)
 
 #define vec_dir(from, to) _VEC_GEN_BINARY_FLOAT(dir, from, to)
 
+#define _VEC_GEN_BINARY_23(FN, a, b)  _Generic((a), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN)((a), (b))
+
+#define vec_cross(a, b) _VEC_GEN_BINARY_23(cross, a, b)
+
 /* ============================================================================================== */
 /* >MATRIX LOGIC                                                                                  */
 /* ============================================================================================== */
