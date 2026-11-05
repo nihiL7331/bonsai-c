@@ -43,56 +43,50 @@ AABB3_TYPEDEF(aabb3i, vec3i, int32_t)
 /* >VECTOR LOGIC                                                                                  */
 /* ============================================================================================== */
 
-#define DEF_BINOP(FN_NAME, OP) \
-    static inline vec2f vec2f_##FN_NAME(vec2f a, vec2f b) { return (vec2f){ .x = a.x OP b.x, .y = a.y OP b.y }; } \
-    static inline vec2i vec2i_##FN_NAME(vec2i a, vec2i b) { return (vec2i){ .x = a.x OP b.x, .y = a.y OP b.y }; } \
-    static inline vec3f vec3f_##FN_NAME(vec3f a, vec3f b) { return (vec3f){ .x = a.x OP b.x, .y = a.y OP b.y, .z = a.z OP b.z }; } \
-    static inline vec3i vec3i_##FN_NAME(vec3i a, vec3i b) { return (vec3i){ .x = a.x OP b.x, .y = a.y OP b.y, .z = a.z OP b.z }; } \
-    static inline vec4f vec4f_##FN_NAME(vec4f a, vec4f b) { return (vec4f){ .x = a.x OP b.x, .y = a.y OP b.y, .z = a.z OP b.z, .w = a.w OP b.w }; } \
-    static inline vec4i vec4i_##FN_NAME(vec4i a, vec4i b) { return (vec4i){ .x = a.x OP b.x, .y = a.y OP b.y, .z = a.z OP b.z, .w = a.w OP b.w }; }
-
-DEF_BINOP(add, +)
-DEF_BINOP(sub, -)
-DEF_BINOP(mul, *)
-DEF_BINOP(div, /)
-
-static inline vec2f vec2f_scale(vec2f v, float s)   { return (vec2f){ .x = v.x * s, .y = v.y * s }; }
-static inline vec2i vec2i_scale(vec2i v, int32_t s) { return (vec2i){ .x = v.x * s, .y = v.y * s }; }
-static inline vec3f vec3f_scale(vec3f v, float s)   { return (vec3f){ .x = v.x * s, .y = v.y * s, .z = v.z * s }; }
-static inline vec3i vec3i_scale(vec3i v, int32_t s) { return (vec3i){ .x = v.x * s, .y = v.y * s, .z = v.z * s }; }
-static inline vec4f vec4f_scale(vec4f v, float s)   { return (vec4f){ .x = v.x * s, .y = v.y * s, .z = v.z * s, .w = v.w * s }; }
-static inline vec4i vec4i_scale(vec4i v, int32_t s) { return (vec4i){ .x = v.x * s, .y = v.y * s, .z = v.z * s, .w = v.w * s }; }
-
-static inline float   vec2f_dot(vec2f a, vec2f b) { return a.x * b.x + a.y * b.y; }
-static inline int32_t vec2i_dot(vec2i a, vec2i b) { return a.x * b.x + a.y * b.y; }
-static inline float   vec3f_dot(vec3f a, vec3f b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-static inline int32_t vec3i_dot(vec3i a, vec3i b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-static inline float   vec4f_dot(vec4f a, vec4f b) { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; }
-static inline int32_t vec4i_dot(vec4i a, vec4i b) { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; }
-
-#define DEF_FLOAT_OPS(NAME) \
-    static inline float NAME##_len_sq(NAME v) { return NAME##_dot(v, v); } \
-    static inline float NAME##_len(NAME v)    { return sqrtf(NAME##_len_sq(v)); } \
-    static inline NAME  NAME##_norm(NAME v) { \
-        float l = NAME##_len(v); \
-        return l > 0.0f ? NAME##_scale(v, 1.0f / l) : (NAME){0}; \
+#define _DEF_VEC_BINOP(NAME, DIM, FN, OP)                                                          \
+    static inline NAME NAME##_##FN(NAME a, NAME b) {                                               \
+        NAME r = {0};                                                                              \
+        for (size_t i = 0; i < (DIM); ++i) r.v[i] = a.v[i] OP b.v[i];                              \
+        return r;                                                                                  \
     }
+
+#define DEF_VEC_OPS(NAME, T, DIM)                                                                  \
+    _DEF_VEC_BINOP(NAME, DIM, add, +)                                                              \
+    _DEF_VEC_BINOP(NAME, DIM, sub, -)                                                              \
+    _DEF_VEC_BINOP(NAME, DIM, mul, *)                                                              \
+    _DEF_VEC_BINOP(NAME, DIM, div, /)                                                              \
+    static inline NAME NAME##_scale(NAME v, T s) {                                                 \
+        NAME r = {0};                                                                              \
+        for (size_t i = 0; i < (DIM); ++i) r.v[i] = v.v[i] * s;                                    \
+        return r;                                                                                  \
+    }                                                                                              \
+    static inline T NAME##_dot(NAME a, NAME b) {                                                   \
+        T sum = 0;                                                                                 \
+        for (size_t i = 0; i < (DIM); ++i) sum += a.v[i] * b.v[i];                                 \
+        return sum;                                                                                \
+    }                                                                                              \
+    static inline T     NAME##_len_sq(NAME v) { return NAME##_dot(v, v); }                         \
+    static inline float NAME##_len(NAME v)    { return sqrtf((float)NAME##_len_sq(v)); }
+
+DEF_VEC_OPS(vec2f, float,   2)
+DEF_VEC_OPS(vec2i, int32_t, 2)
+
+DEF_VEC_OPS(vec3f, float,   3)
+DEF_VEC_OPS(vec3i, int32_t, 3)
+
+DEF_VEC_OPS(vec4f, float,   4)
+DEF_VEC_OPS(vec4i, int32_t, 4)
+
+#define DEF_FLOAT_OPS(NAME)                                                                        \
+    static inline NAME NAME##_norm(NAME v) {                                                       \
+        float l = NAME##_len(v);                                                                   \
+        return l > 0.0f ? NAME##_scale(v, 1.0f / l) : (NAME){0};                                   \
+    }                                                                                              \
+    static inline NAME NAME##_dir(NAME from, NAME to) { return NAME##_norm(NAME##_sub(to, from)); }
 
 DEF_FLOAT_OPS(vec2f)
 DEF_FLOAT_OPS(vec3f)
 DEF_FLOAT_OPS(vec4f)
-
-static inline int32_t vec2i_len_sq(vec2i v) { return vec2i_dot(v, v); }
-static inline float   vec2i_len(vec2i v)    { return sqrtf((float)vec2i_len_sq(v)); }
-
-static inline int32_t vec3i_len_sq(vec3i v) { return vec3i_dot(v, v); }
-static inline float   vec3i_len(vec3i v)    { return sqrtf((float)vec3i_len_sq(v)); }
-
-static inline int32_t vec4i_len_sq(vec4i v) { return vec4i_dot(v, v); }
-static inline float   vec4i_len(vec4i v)    { return sqrtf((float)vec4i_len_sq(v)); }
-
-static inline vec2f vec2f_dir(vec2f from, vec2f to) { return vec2f_norm(vec2f_sub(to, from)); }
-static inline vec3f vec3f_dir(vec3f from, vec3f to) { return vec3f_norm(vec3f_sub(to, from)); }
 
 #define _VEC_GEN_BINARY(FN, a, b) _Generic((a), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN, vec4f: vec4f_##FN, vec4i: vec4i_##FN)((a), (b))
 
@@ -111,6 +105,10 @@ static inline vec3f vec3f_dir(vec3f from, vec3f to) { return vec3f_norm(vec3f_su
 #define _VEC_GEN_UNARY_FLOAT(FN, v) _Generic((v), vec2f: vec2f_##FN, vec3f: vec3f_##FN, vec4f: vec4f_##FN)((v))
 
 #define vec_norm(v) _VEC_GEN_UNARY_FLOAT(norm, v)
+
+#define _VEC_GEN_BINARY_FLOAT(FN, a, b) _Generic((a), vec2f: vec2f_##FN, vec3f: vec3f_##FN, vec4f: vec4f_##FN)((a), (b))
+
+#define vec_dir(from, to) _VEC_GEN_BINARY_FLOAT(dir, from, to)
 
 /* ============================================================================================== */
 /* >MATRIX LOGIC                                                                                  */
