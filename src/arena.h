@@ -1,6 +1,8 @@
 #pragma once
 
 #include "core.h"
+
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct arena {
@@ -45,6 +47,14 @@ static inline void *arena_alloc(arena_t *a, size_t sz) {
     a->off        = aligned_off + aligned_sz;
     return ret_ptr;
 } 
+
+static inline bool arena_has(arena_t *a, void *ptr, size_t sz) {
+    ASSERT(a,   "Attempted has check on NULL arena (ptr: %p, sz: %zu)",   ptr, sz);
+    ASSERT(ptr, "Attempted has check on NULL ptr   (arena: %p, sz: %zu)", a,   sz);
+    if (!a || !ptr) return false;
+    return (uintptr_t)ptr       >= (uintptr_t)(a->buf) &&
+          ((uintptr_t)ptr + sz) <= ((uintptr_t)a->buf + a->off);
+}
 
 static inline arena_temp_t arena_temp_begin(arena_t *a) {
     ASSERT(a, "Attempted temp begin on NULL arena");
