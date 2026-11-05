@@ -45,6 +45,13 @@ AABB2_TYPEDEF(aabb2i, vec2i, int32_t)
 AABB3_TYPEDEF(aabb3f, vec3f, float)
 AABB3_TYPEDEF(aabb3i, vec3i, int32_t)
 
+typedef union quatf {
+    struct { float x, y, z, w; };
+    vec3f  xyz;
+    vec4f  xyzw;
+    float  v[4];
+} quatf;
+
 /* ============================================================================================== */
 /* >VECTOR LOGIC                                                                                  */
 /* ============================================================================================== */
@@ -297,6 +304,118 @@ DEF_AABB_OPS(aabb3i, vec3i, 3)
 #define aabb_merge(a, b)               _Generic((a),      aabb2f: aabb2f_merge,       aabb2i: aabb2i_merge,       aabb3f: aabb3f_merge,        aabb3i: aabb3i_merge)((a), (b))
 #define aabb_pos_size(pos, size)       _Generic((pos),    vec2f:  aabb2f_pos_size,    vec2i:  aabb2i_pos_size,    vec3f:  aabb3f_pos_size,     vec3i:  aabb3i_pos_size)((pos), (size))
 #define aabb_center_half(center, half) _Generic((center), vec2f:  aabb2f_center_half, vec2i:  aabb2i_center_half, vec3f:  aabb3f_center_half,  vec3i:  aabb3i_center_half)((center), (half))
+
+/* ============================================================================================== */
+/* >QUATERNION LOGIC                                                                              */
+/* ============================================================================================== */
+
+static inline quatf quatf_id(void) { return (quatf){ .x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f }; }
+
+static inline quatf quatf_axis_angle(vec3f axis, float angle_rad) {
+    float h = angle_rad * 0.5f;
+    float s = sinf(h);
+    return (quatf){
+        .x = axis.x * s,
+        .y = axis.y * s,
+        .z = axis.z * s,
+        .w = cosf(h),
+    };
+}
+
+static inline quatf quatf_from_euler(float pitch, float yaw, float roll) {
+    float hp = pitch * 0.5f, hy = yaw * 0.5f, hr = roll * 0.5f;
+    float sp = sinf(hp),     sy = sinf(hy),   sr = sinf(hr);
+    float cp = cosf(hp),     cy = cosf(hy),   cr = cosf(hr);
+    return (quatf) {
+        .x = sp * cy * cr - cp * sy * sr,
+        .y = cp * sy * cr + sp * cy * sr,
+        .z = cp * cy * sr - sp * sy * cr,
+        .w = cp * cy * cr + sp * sy * sr,
+    };
+}
+
+static inline float quatf_dot(quatf a, quatf b) {
+    return vec4f_dot(a.xyzw, b.xyzw);
+}
+
+static inline quatf quatf_norm(quatf q) {
+    float l = vec4f_len(q.xyzw);
+    return l > 0.0f ? (quatf){ .xyzw = vec4f_scale(q.xyzw, 1.0f / l) } : quatf_id();
+}
+
+static inline quatf quatf_conj(quatf q) {
+    return (quatf){ .x = -q.x, .y = -q.y, .z = -q.z, .w = q.w };
+}
+
+static inline quatf quatf_mul(quatf a, quatf b) {
+   return (quatf){
+       .x = a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+       .y = a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+       .z = a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+       .w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+   };
+}
+
+static inline vec3f quatf_mul_vec3(quatf q, vec3f v) {
+    vec3f uv  = vec3f_cross(q.xyz, v);
+    vec3f uuv = vec3f_cross(q.xyz, uv);
+    return vec3f_add(v, vec3f_scale(vec3f_add(vec3f_scale(uv, q.w), uuv), 2.0f));
+}
+
+static inline mat3f quatf_to_mat3f(quatf q) {
+    float x2 = q.x * 2.0f, y2 = q.y * 2.0f, z2 = q.z * 2.0f;
+    float xx = q.x * x2,   xy = q.x * y2,   xz = q.x * z2;
+    float yy = q.y * y2,   yz = q.y * z2,   zz = q.z * z2;
+    float wx = q.w * x2,   wy = q.w * y2,   wz = q.w * z2;
+
+    return (mat3f){ .col = {
+        { .x = 1.0f - (yy + zz), .y = xy + wz,          .z = xz - wy          },
+        { .x = xy - wz,          .y = 1.0f - (xx + zz), .z = yz + wx          },
+        { .x = xz + wy,          .y = yz - wx,          .z = 1.0f - (xx + yy) },
+    } };
+}
+
+static inline mat4f quatf_to_mat4f(quatf q) {
+    mat3f m3 = quatf_to_mat3f(q);
+    return (mat4f){ .v = {
+        m3.col[0].x, m3.col[0].y, m3.col[0].z, 0.0f,
+        m3.col[1].x, m3.col[1].y, m3.col[1].z, 0.0f,
+        m3.col[2].x, m3.col[2].y, m3.col[2].z, 0.0f,
+        0.0f,        0.0f,        0.0f,        1.0f,
+    } };
+}
+
+static inline quatf quatf_slerp(quatf a, quatf b, float t) {
+    float dot = quatf_dot(a, b);
+    if (dot < 0.0f) {
+        b   = (quatf){ .x = -b.x, .y = -b.y, .z = -b.z, .w = -b.w };
+        dot = -dot;
+    }
+
+    if (dot > 1.0f - 1e-3f) {
+        return quatf_norm((quatf){
+            .x = a.x + (b.x - a.x) * t,
+            .y = a.y + (b.y - a.y) * t,
+            .z = a.z + (b.z - a.z) * t,
+            .w = a.w + (b.w - a.w) * t,
+        });
+    }
+
+    float theta_0     = acosf(dot);
+    float theta       = theta_0 * t;
+    float sin_theta_0 = sinf(theta_0);
+    float sin_theta   = sinf(theta);
+
+    float s0 = cosf(theta) - dot * sin_theta / sin_theta_0;
+    float s1 = sin_theta / sin_theta_0;
+
+    return (quatf){
+        .x = a.x * s0 + b.x * s1,
+        .y = a.y * s0 + b.y * s1,
+        .z = a.z * s0 + b.z * s1,
+        .w = a.w * s0 + b.w * s1,
+    };
+}
 
 /* ============================================================================================== */
 /* >CAPTURE LOGIC                                                                                 */
