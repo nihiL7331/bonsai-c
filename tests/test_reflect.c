@@ -1,4 +1,5 @@
 #include "core.h"
+#include "ecs.h"
 #include "reflect.h"
 #include "test.h"
 
