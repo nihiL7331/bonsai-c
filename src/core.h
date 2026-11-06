@@ -42,6 +42,16 @@
 /* variadic 1-4 args math maximum */
 #define MAX(...) _MAX_SELECT(__VA_ARGS__, _MAX4, _MAX3, _MAX2, 0)(__VA_ARGS__)
 
+#define CLAMP(x, lo, hi) (((x) < (lo) ? (lo) : (((x) > (hi)) ? (hi) : (x))))
+
+#define IS_POW2(x) ((x) && !(((x) & ((x) - 1))))
+
+#define BIT(n) (1ULL << (n))
+
+#define KB(x) ((size_t)(x) * 1024ULL)
+#define MB(x) ((size_t)(x) * 1024ULL * 1024ULL)
+#define GB(x) ((size_t)(x) * 1024ULL * 1024ULL * 1024ULL)
+
 /* ============================================================================================== */
 /* >LOGGING & PROGRAM LIFECYCLE                                                                   */
 /* ============================================================================================== */

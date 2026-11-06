@@ -93,7 +93,7 @@ static inline void _ecs_pool_remove(ecs_world_t *world, uint16_t e_idx, comp_id_
         p->sparse[last_e_idx] = d_idx;
     }
 
-    world->mgr.comp_mask[e_idx] &= ~(1ULL << comp);
+    world->mgr.comp_mask[e_idx] &= ~BIT(comp);
     p->sparse[e_idx]             = ECS_NULL_IDX;
     p->dirty                     = true;
     p->cnt--;
@@ -285,7 +285,7 @@ bool ecs_has_raw(entity_handle_t e, comp_id_t id) {
     ASSERT(world, "Attempted to check has component with NULL active world (e: %" PRIu64 ", id: %d)", e, id);
 
     uint16_t idx = entity_idx(e);
-    return (world->mgr.comp_mask[idx] & (1ULL << id)) != 0ULL;
+    return (world->mgr.comp_mask[idx] & BIT(id)) != 0ULL;
 }
 
 void *ecs_add_raw(entity_handle_t e, comp_id_t id, const void *val) {
@@ -311,7 +311,7 @@ void *ecs_add_raw(entity_handle_t e, comp_id_t id, const void *val) {
     p->sparse[e_idx]             = d_idx;
     p->entities[d_idx]           = e_idx;
     p->dirty                     = true;
-    world->mgr.comp_mask[e_idx] |= (1ULL << id);
+    world->mgr.comp_mask[e_idx] |= BIT(id);
 
     void *dst = (uint8_t *)p->dense + ((size_t)d_idx * p->elem_sz);
     if (val) memcpy(dst, val, p->elem_sz);

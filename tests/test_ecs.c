@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define TEST_PERM_SZ    (32 * 1024 * 1024)
-#define TEST_SCRATCH_SZ (4 * 1024 * 1024)
+#define TEST_PERM_SZ    MB(32)
+#define TEST_SCRATCH_SZ MB(4)
 
 static arena_t s_perm_arena;
 static arena_t s_scratch_arena;

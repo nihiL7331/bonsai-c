@@ -420,7 +420,7 @@ static inline mat4f quatf_to_mat4f(quatf q) {
 }
 
 static inline quatf quatf_slerp(quatf a, quatf b, float t) {
-    float dot = quatf_dot(a, b);
+    float dot = CLAMP(quatf_dot(a, b), -1.0f, 1.0f);
     if (dot < 0.0f) {
         b   = (quatf){ .x = -b.x, .y = -b.y, .z = -b.z, .w = -b.w };
         dot = -dot;
