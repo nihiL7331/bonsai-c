@@ -20,6 +20,7 @@ static inline spatial_bitset_t _spatial_bitset_begin(uint32_t ent_cnt, uint64_t 
     bs.word_cnt         = (ent_cnt + 63) / 64;
     if (bs.word_cnt <= SPATIAL_STACK_WORDS) bs.words = stack_buf;
     else if (scratch) {
+        ASSERT(scratch, "Spatial query requires scratch arena when entity count exceeds stack buffer (cnt: %" PRIu32 ")", ent_cnt);
         bs.tmp   = arena_temp_begin(scratch);
         bs.words = arena_alloc(scratch, bs.word_cnt * sizeof(uint64_t));
         if (!bs.words) arena_temp_end(bs.tmp);
@@ -29,7 +30,7 @@ static inline spatial_bitset_t _spatial_bitset_begin(uint32_t ent_cnt, uint64_t 
 }
 
 static inline void _spatial_bitset_end(spatial_bitset_t *bs) {
-    if (bs->word_cnt > SPATIAL_STACK_WORDS && bs->tmp.arena) arena_temp_end(bs->tmp)
+    if (bs->word_cnt > SPATIAL_STACK_WORDS && bs->tmp.arena) arena_temp_end(bs->tmp);
 }
 
 static inline bool _spatial_bitset_test_set(spatial_bitset_t *bs, uint32_t idx) {
