@@ -3,6 +3,8 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #if defined(__GNUC__) || defined(__clang__)
     #define TRAP() __builtin_trap()
@@ -31,31 +33,58 @@
 #define _MAX_SELECT(_1, _2, _3, _4, NAME, ...) NAME
 #define MAX(...) _MAX_SELECT(__VA_ARGS__, _MAX4, _MAX3, _MAX2, 0)(__VA_ARGS__)
 
-static inline void log_err(const char *file, int line, const char *func, const char *fmt, ...) {
+/* ============================================================================================== */
+/* >LOGGING & PROGRAM LIFECYCLE                                                                   */
+/* ============================================================================================== */
+
+static inline int test_use_color(void) {
+    static int cached = -1;
+    if (cached < 0) {
+        const char *no_color = getenv("NO_COLOR");
+        cached               = isatty(STDOUT_FILENO) && !(no_color && *no_color);
+    }
+    return cached;
+}
+
+#define LOG_TC(code) (test_use_color() ? (code) : "")
+#define LOG_CLR_RST  "\033[0m"
+#define LOG_CLR_RED  "\033[1;31m"
+#define LOG_CLR_GRN  "\033[1;32m"
+#define LOG_CLR_YLW  "\033[1;33m"
+
+static inline void _log(const char *color, const char *prefix, FILE *s,
+                        const char *file, int line, const char *func, const char *fmt, ...) {
     // TODO: log into MCP logs
-    fprintf(stderr, "%s:%d in %s(): ", file, line, func);
+    fprintf(s, "%s[%s]%s %s:%d in %s(): ", LOG_TC(color), prefix, LOG_TC(LOG_CLR_RST), file, line, func);
     va_list args;
     va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
+    vfprintf(s, fmt, args);
     va_end(args);
-    fprintf(stderr, "\n");
+    fprintf(s, "\n");
 }
+
+#ifdef DEBUG
+#define LOG_WARN(...) _log(LOG_CLR_YLW, "WARN", stderr, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#else  // !DEBUG
+#define LOG_WARN(...) NOOP
+#endif // !DEBUG
+#define LOG_ERR(...)  _log(LOG_CLR_RED, "ERR ", stderr, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 #ifdef DEBUG
 #define ASSERT(cond, ...)                                                                          \
     do {                                                                                           \
         if (!(cond)) {                                                                             \
-            log_err(__FILE__, __LINE__, __func__, "ASSERT: (" #cond ") " __VA_ARGS__);             \
+            LOG_ERR("ASSERT: (" #cond ") " __VA_ARGS__);                                           \
             TRAP();                                                                                \
         }                                                                                          \
     } while (0)
 #else  // !DEBUG
-#define ASSERT(cond, ...) do { } while (0)
+#define ASSERT(cond, ...) NOOP
 #endif // !DEBUG
 
 #define PANIC(...)                                                                                 \
     do {                                                                                           \
-        log_err(__FILE__, __LINE__, __func__, "PANIC: " __VA_ARGS__);                              \
+        LOG_ERR("PANIC: " __VA_ARGS__);                                                            \
         TRAP();                                                                                    \
     } while (0)
 
