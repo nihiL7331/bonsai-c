@@ -56,7 +56,7 @@
 /* >LOGGING & PROGRAM LIFECYCLE                                                                   */
 /* ============================================================================================== */
 
-static inline int test_use_color(void) {
+static inline int _core_use_color(void) {
     static int cached = -1;
     if (cached < 0) {
         const char *no_color = getenv("NO_COLOR");
@@ -65,7 +65,7 @@ static inline int test_use_color(void) {
     return cached;
 }
 
-#define LOG_TC(code) (test_use_color() ? (code) : "")
+#define LOG_TC(code) (_core_use_color() ? (code) : "")
 #define LOG_CLR_RST  "\033[0m"
 #define LOG_CLR_RED  "\033[1;31m"
 #define LOG_CLR_GRN  "\033[1;32m"

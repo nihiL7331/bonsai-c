@@ -131,7 +131,7 @@ DEF_VEC_CROSS3(vec3i)
 #define vec_dot(a, b)   _VEC_GEN_BINARY(dot, a, b)
 
 #define _VEC_GEN_UNARY(FN, v) _Generic((v), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN, vec4f: vec4f_##FN, vec4i: vec4i_##FN)((v))
-    
+
 #define vec_len_sq(v) _VEC_GEN_UNARY(len_sq, v)
 #define vec_len(v)    _VEC_GEN_UNARY(len, v)
 

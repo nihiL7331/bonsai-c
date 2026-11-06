@@ -125,7 +125,7 @@
 static comp_meta_t s_comp_reg[COMP_CNT];
 static bool        s_reg_init = false;
 
-static void reflect_init_lazy(void) {
+static void _reflect_init_lazy(void) {
     if (s_reg_init) return;
     s_reg_init = true;
 

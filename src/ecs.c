@@ -127,7 +127,7 @@ entity_handle_t ecs_find_tag(const char *tag) {
     ecs_pool_t *p = &world->pools[COMP_tag];
     for (uint32_t i = 0; i < p->cnt; ++i) {
         const struct tag *t = (const struct tag *)((const uint8_t *)p->dense + (size_t)i * p->elem_sz);
-        
+
         if (strncmp((const char *)t->name, tag, 32) == 0) {
             uint16_t idx = p->entities[i];
             if (!(world->mgr.flags[idx] & ENTITY_FLAG_DEAD))

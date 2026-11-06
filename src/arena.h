@@ -6,14 +6,14 @@
 #include <stddef.h>
 
 typedef struct arena {
-   void *buf;
-   size_t cap;
-   size_t off;
+    void  *buf;
+    size_t cap;
+    size_t off;
 } arena_t;
 
 typedef struct arena_temp {
     arena_t *arena;
-    size_t prev_off;
+    size_t   prev_off;
 } arena_temp_t;
 
 static inline void arena_reset(arena_t *a) {
@@ -46,7 +46,7 @@ static inline void *arena_alloc(arena_t *a, size_t sz) {
     void *ret_ptr = (void *)((uintptr_t)a->buf + aligned_off);
     a->off        = aligned_off + aligned_sz;
     return ret_ptr;
-} 
+}
 
 static inline bool arena_has(arena_t *a, void *ptr, size_t sz) {
     ASSERT(a,   "Attempted has check on NULL arena (ptr: %p, sz: %zu)",   ptr, sz);
