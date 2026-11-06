@@ -6,6 +6,41 @@
 #include <string.h>
 
 /* ============================================================================================== */
+/* >BITSET HELPERS                                                                                */
+/* ============================================================================================== */
+
+typedef struct spatial_bitset {
+    uint64_t    *words;
+    uint32_t     word_cnt;
+    arena_temp_t tmp;
+} spatial_bitset_t;
+
+static inline spatial_bitset_t _spatial_bitset_begin(uint32_t ent_cnt, uint64_t *stack_buf, arena_t *scratch) {
+    spatial_bitset_t bs = {0};
+    bs.word_cnt         = (ent_cnt + 63) / 64;
+    if (bs.word_cnt <= SPATIAL_STACK_WORDS) bs.words = stack_buf;
+    else if (scratch) {
+        bs.tmp   = arena_temp_begin(scratch);
+        bs.words = arena_alloc(scratch, bs.word_cnt * sizeof(uint64_t));
+        if (!bs.words) arena_temp_end(bs.tmp);
+    }
+    if (bs.words) memset(bs.words, 0, bs.word_cnt * sizeof(uint64_t));
+    return bs;
+}
+
+static inline void _spatial_bitset_end(spatial_bitset_t *bs) {
+    if (bs->word_cnt > SPATIAL_STACK_WORDS && bs->tmp.arena) arena_temp_end(bs->tmp)
+}
+
+static inline bool _spatial_bitset_test_set(spatial_bitset_t *bs, uint32_t idx) {
+    uint32_t word = idx / 64;
+    uint64_t bit  = BIT(idx % 64);
+    if (bs->words[word] & bit) return true;
+    bs->words[word] |= bit;
+    return false;
+}
+
+/* ============================================================================================== */
 /* >CONVERSION HELPERS                                                                            */
 /* ============================================================================================== */
 
@@ -211,27 +246,9 @@ uint32_t spatial_query_aabb2d(const spatial_grid2d_t *grid, aabb2f box, uint32_t
     ASSERT(out_ents, "Attempted to query with NULL out_ents (grid: %p, box: " FMT_AABB2F ", mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",      grid,            ARG_AABB2F(box), mask,     max_out,  scratch);
     if (!grid || !out_ents || !max_out || !grid->entity_cnt || !grid->cell_offs || !grid->entries) return 0;
 
-    /* scratch-alloc visited bitset to deduplicate multi-cell entities */
-    uint32_t  bitset_words = (grid->entity_cnt + 63) / 64;
-
-    /* stack buffer for <= 2048 ents */
-    uint64_t stack_visited[SPATIAL_STACK_WORDS];
-    uint64_t *visited = stack_visited;
-    arena_temp_t tmp = {0};
-
-    if (bitset_words > SPATIAL_STACK_WORDS) {
-        ASSERT(scratch,  "Attempted to query AABB with NULL scratch (grid: %p, box: " FMT_AABB2F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ")", grid,            ARG_AABB2F(box), mask,     out_ents, max_out);
-        if (!scratch) return 0;
-
-        tmp = arena_temp_begin(scratch);
-        visited = arena_alloc(scratch, bitset_words * sizeof(uint64_t));
-        if (!visited) {
-            arena_temp_end(tmp);
-            return 0;
-        }
-    }
-
-    memset(visited, 0, bitset_words * sizeof(uint64_t));
+    uint64_t stack_buf[SPATIAL_STACK_WORDS];
+    spatial_bitset_t bs = _spatial_bitset_begin(grid->entity_cnt, stack_buf, scratch);
+    if (!bs.words) return 0;
 
     aabb2i   c           = _spatial_bounds_to_cells2d(box, grid->inv_cell_sz);
     uint32_t bucket_mask = grid->bucket_cnt - 1;
@@ -247,8 +264,7 @@ uint32_t spatial_query_aabb2d(const spatial_grid2d_t *grid, aabb2f box, uint32_t
                 uint32_t e_idx = grid->entries[idx];
 
                 /* deduplication check, update visited */
-                if (visited[e_idx / 64] & BIT(e_idx % 64)) continue;
-                visited[e_idx / 64]    |= BIT(e_idx % 64);
+                if (_spatial_bitset_test_set(&bs, e_idx)) continue;
 
                 /* layer bitmask check, where 0=match any */
                 if (mask && !(grid->entities[e_idx].mask & mask)) continue;
@@ -262,7 +278,7 @@ uint32_t spatial_query_aabb2d(const spatial_grid2d_t *grid, aabb2f box, uint32_t
         }
 
 done:
-    if (bitset_words > SPATIAL_STACK_WORDS) arena_temp_end(tmp);
+    _spatial_bitset_end(&bs);
     return found;
 }
 
@@ -456,27 +472,9 @@ uint32_t spatial_query_aabb3d(const spatial_grid3d_t *grid, aabb3f box, uint32_t
     ASSERT(out_ents, "Attempted to query with NULL out_ents (grid: %p, box: " FMT_AABB3F ", mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",      grid,            ARG_AABB3F(box), mask,     max_out,  scratch);
     if (!grid || !out_ents || !max_out || !grid->entity_cnt || !grid->cell_offs || !grid->entries) return 0;
 
-    /* scratch-alloc visited bitset to deduplicate multi-cell entities */
-    uint32_t  bitset_words = (grid->entity_cnt + 63) / 64;
-
-    /* stack buffer for <= 2048 ents */
-    uint64_t stack_visited[SPATIAL_STACK_WORDS];
-    uint64_t *visited = stack_visited;
-    arena_temp_t tmp = {0};
-
-    if (bitset_words > SPATIAL_STACK_WORDS) {
-        ASSERT(scratch,  "Attempted to query AABB with NULL scratch (grid: %p, box: " FMT_AABB2F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ")", grid,            ARG_AABB2F(box), mask,     out_ents, max_out);
-        if (!scratch) return 0;
-
-        tmp = arena_temp_begin(scratch);
-        visited = arena_alloc(scratch, bitset_words * sizeof(uint64_t));
-        if (!visited) {
-            arena_temp_end(tmp);
-            return 0;
-        }
-    }
-
-    memset(visited, 0, bitset_words * sizeof(uint64_t));
+    uint64_t stack_buf[SPATIAL_STACK_WORDS];
+    spatial_bitset_t bs = _spatial_bitset_begin(grid->entity_cnt, stack_buf, scratch);
+    if (!bs.words) return 0;
 
     aabb3i   c           = _spatial_bounds_to_cells3d(box, grid->inv_cell_sz);
     uint32_t bucket_mask = grid->bucket_cnt - 1;
@@ -493,8 +491,7 @@ uint32_t spatial_query_aabb3d(const spatial_grid3d_t *grid, aabb3f box, uint32_t
                     uint32_t e_idx = grid->entries[idx];
 
                     /* deduplication check, update visited */
-                    if (visited[e_idx / 64] & BIT(e_idx % 64)) continue;
-                    visited[e_idx / 64]    |= BIT(e_idx % 64);
+                    if (_spatial_bitset_test_set(&bs, e_idx)) continue;
 
                     /* layer bitmask check, where 0=match any */
                     if (mask && !(grid->entities[e_idx].mask & mask)) continue;
@@ -508,7 +505,7 @@ uint32_t spatial_query_aabb3d(const spatial_grid3d_t *grid, aabb3f box, uint32_t
             }
 
 done:
-    if (bitset_words > SPATIAL_STACK_WORDS) arena_temp_end(tmp);
+    _spatial_bitset_end(&bs);
     return found;
 }
 
