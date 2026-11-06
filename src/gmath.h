@@ -326,7 +326,7 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
 /* >AABB LOGIC                                                                                    */
 /* ============================================================================================== */
 
-#define DEF_AABB_OPS(NAME, VEC_T, DIM)                                                             \
+#define DEF_AABB_OPS(NAME, VEC_T, T, DIM)                                                          \
     static inline NAME NAME##_pos_size(VEC_T pos, VEC_T size) {                                    \
         return (NAME){ .min = pos, .max = VEC_T##_add(pos, size) };                                \
     }                                                                                              \
@@ -353,6 +353,13 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
             r.max.v[i] = MAX(a.max.v[i], b.max.v[i]);                                              \
         }                                                                                          \
         return r;                                                                                  \
+    }                                                                                              \
+    static inline bool NAME##_inter_radius(NAME b, VEC_T center, T radius) {                       \
+        VEC_T closest = (VEC_T){0};                                                                \
+        for (size_t i = 0; i < (DIM); ++i)                                                         \
+            closest.v[i] = CLAMP(center.v[i], b.min.v[i], b.max.v[i]);                             \
+        VEC_T diff = vec_sub(center, closest);                                                     \
+        return vec_dot(diff, diff) <= (radius * radius);                                           \
     }
 
 #define DEF_AABB_FLOAT_CENTER(NAME, VEC_T)                                                         \
@@ -360,21 +367,22 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
         return VEC_T##_scale(VEC_T##_add(b.min, b.max), 0.5f);                                     \
     }
 
-DEF_AABB_OPS(aabb2f, vec2f, 2)
+DEF_AABB_OPS(aabb2f, vec2f, float, 2)
 DEF_AABB_FLOAT_CENTER(aabb2f, vec2f)
-DEF_AABB_OPS(aabb2i, vec2i, 2)
+DEF_AABB_OPS(aabb2i, vec2i, int32_t, 2)
 
-DEF_AABB_OPS(aabb3f, vec3f, 3)
+DEF_AABB_OPS(aabb3f, vec3f, float, 3)
 DEF_AABB_FLOAT_CENTER(aabb3f, vec3f)
-DEF_AABB_OPS(aabb3i, vec3i, 3)
+DEF_AABB_OPS(aabb3i, vec3i, int32_t, 3)
 
-#define aabb_size(b)                   _Generic((b),      aabb2f: aabb2f_size,        aabb2i: aabb2i_size,        aabb3f: aabb3f_size,         aabb3i: aabb3i_size)((b))
-#define aabb_center(b)                 _Generic((b),      aabb2f: aabb2f_center,                                  aabb3f: aabb3f_center                           )((b))
-#define aabb_inter(a, b)               _Generic((a),      aabb2f: aabb2f_inter,       aabb2i: aabb2i_inter,       aabb3f: aabb3f_inter,        aabb3i: aabb3i_inter)((a), (b))
-#define aabb_contains(b, p)            _Generic((b),      aabb2f: aabb2f_contains,    aabb2i: aabb2i_contains,    aabb3f: aabb3f_contains,     aabb3i: aabb3i_contains)((b), (p))
-#define aabb_merge(a, b)               _Generic((a),      aabb2f: aabb2f_merge,       aabb2i: aabb2i_merge,       aabb3f: aabb3f_merge,        aabb3i: aabb3i_merge)((a), (b))
-#define aabb_pos_size(pos, size)       _Generic((pos),    vec2f:  aabb2f_pos_size,    vec2i:  aabb2i_pos_size,    vec3f:  aabb3f_pos_size,     vec3i:  aabb3i_pos_size)((pos), (size))
-#define aabb_center_half(center, half) _Generic((center), vec2f:  aabb2f_center_half, vec2i:  aabb2i_center_half, vec3f:  aabb3f_center_half,  vec3i:  aabb3i_center_half)((center), (half))
+#define aabb_size(b)                         _Generic((b),      aabb2f: aabb2f_size,         aabb2i: aabb2i_size,         aabb3f: aabb3f_size,         aabb3i: aabb3i_size)((b))
+#define aabb_center(b)                       _Generic((b),      aabb2f: aabb2f_center,                                    aabb3f: aabb3f_center                           )((b))
+#define aabb_inter(a, b)                     _Generic((a),      aabb2f: aabb2f_inter,        aabb2i: aabb2i_inter,        aabb3f: aabb3f_inter,        aabb3i: aabb3i_inter)((a), (b))
+#define aabb_contains(b, p)                  _Generic((b),      aabb2f: aabb2f_contains,     aabb2i: aabb2i_contains,     aabb3f: aabb3f_contains,     aabb3i: aabb3i_contains)((b), (p))
+#define aabb_merge(a, b)                     _Generic((a),      aabb2f: aabb2f_merge,        aabb2i: aabb2i_merge,        aabb3f: aabb3f_merge,        aabb3i: aabb3i_merge)((a), (b))
+#define aabb_inter_radius(b, center, radius) _Generic((b),      aabb2f: aabb2f_inter_radius, aabb2i: aabb2i_inter_radius, aabb3f: aabb3f_inter_radius, aabb3i: aabb3i_inter_radius)((b), (center), (radius))
+#define aabb_pos_size(pos, size)             _Generic((pos),    vec2f:  aabb2f_pos_size,     vec2i:  aabb2i_pos_size,     vec3f:  aabb3f_pos_size,     vec3i:  aabb3i_pos_size)((pos), (size))
+#define aabb_center_half(center, half)       _Generic((center), vec2f:  aabb2f_center_half,  vec2i:  aabb2i_center_half,  vec3f:  aabb3f_center_half,  vec3i:  aabb3i_center_half)((center), (half))
 
 /* ============================================================================================== */
 /* >QUATERNION LOGIC                                                                              */

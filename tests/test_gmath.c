@@ -274,5 +274,18 @@ int main(void) {
         TEST_ASSERT(!aabb_inter(a, c), "Z-separated 3D boxes exp false");
     } TEST_CASE_END();
 
+    TEST_CASE("aabb_inter_radius", "checks circle and sphere inter") {
+        aabb2f b2 = aabb2f(vec2f(10, 10), vec2f(20, 20));
+        TEST_ASSERT( aabb_inter_radius(b2, vec2f(15, 15), 1.0f), "center inside exp true");
+        TEST_ASSERT( aabb_inter_radius(b2, vec2f(5, 15), 5.1f),  "edge overlap exp true");
+        TEST_ASSERT(!aabb_inter_radius(b2, vec2f(5, 15), 4.9f),  "edge separation exp false");
+        TEST_ASSERT( aabb_inter_radius(b2, vec2f(23, 24), 5.01f), "corner overlap exp true");
+        TEST_ASSERT(!aabb_inter_radius(b2, vec2f(23, 24), 4.99f), "corner separation exp false");
+
+        aabb3f b3 = aabb3f(vec3f(10, 10, 10), vec3f(20, 20, 20));
+        TEST_ASSERT( aabb_inter_radius(b3, vec3f(22, 23, 26), 7.01f), "3d corner overlap exp true");
+        TEST_ASSERT(!aabb_inter_radius(b3, vec3f(22, 23, 26), 6.99f), "3d corner separation exp false");
+    } TEST_CASE_END();
+
     TEST_END();
 }
