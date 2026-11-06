@@ -12,25 +12,34 @@
     #define TRAP() (*(volatile int *)0 = 0)
 #endif // !defined(__GNUC__) && !defined(__clang__)
 
+/* ============================================================================================== */
+/* >CACHE LINE HELPERS                                                                            */
+/* ============================================================================================== */
+
 #define CACHE_LINE_SZ       64
 #define ALIGN_LINE_PTR(ptr) ((void *)(((uintptr_t)(ptr) + (CACHE_LINE_SZ - 1)) & ~((uintptr_t)CACHE_LINE_SZ - 1)))
 #define ALIGN_LINE_INT(x)   (((uintptr_t)(x) + (CACHE_LINE_SZ - 1)) & ~((uintptr_t)CACHE_LINE_SZ - 1))
 
-#define ARR_CNT(arr)        (sizeof(arr) / sizeof(*arr))
-#define UNUSED(x)           ((void)x)
+/* ============================================================================================== */
+/* >GENERIC HELPERS                                                                               */
+/* ============================================================================================== */
+
+#define ARR_CNT(arr) (sizeof(arr) / sizeof(*arr))
+#define UNUSED(x)    ((void)x)
+#define NOOP         do { } while (0)
 
 #define _MIN2(a, b)       (((a) < (b)) ? (a) : (b))
 #define _MIN3(a, b, c)    _MIN2(_MIN2(a, b), c)
 #define _MIN4(a, b, c, d) _MIN2(_MIN3(a, b, c), d)
-
 #define _MIN_SELECT(_1, _2, _3, _4, NAME, ...) NAME
+/* variadic 1-4 args math minimum */
 #define MIN(...) _MIN_SELECT(__VA_ARGS__, _MIN4, _MIN3, _MIN2, 0)(__VA_ARGS__)
 
 #define _MAX2(a, b)       (((a) > (b)) ? (a) : (b))
 #define _MAX3(a, b, c)    _MAX2(_MAX2(a, b), c)
 #define _MAX4(a, b, c, d) _MAX2(_MAX3(a, b, c), d)
-
 #define _MAX_SELECT(_1, _2, _3, _4, NAME, ...) NAME
+/* variadic 1-4 args math maximum */
 #define MAX(...) _MAX_SELECT(__VA_ARGS__, _MAX4, _MAX3, _MAX2, 0)(__VA_ARGS__)
 
 /* ============================================================================================== */
