@@ -9,13 +9,30 @@ TEST_SRCS = $(wildcard $(TEST_DIR)/*.c)
 TEST_BINS = $(patsubst $(TEST_DIR)/%.c, $(BUILD_DIR)/%, $(TEST_SRCS))
 SRC_SRCS  = $(wildcard src/*.c)
 SRC_HDRS  = $(wildcard src/*.h)
+ALL_C     = $(wildcard src/*.c src/*.h $(TEST_DIR)/*.c $(TEST_DIR)/*.h)
 
-.PHONY: all test clean
+.PHONY: all test clean compdb lint
+
+all: lint test
+
+lint:
+	@tabs=$$(grep -Pn '\t' $(ALL_C) 2>/dev/null); if [ -n "$$tabs" ]; then                     \
+		echo "\033[1;31mfail\033[0m: hard tabs found:";                                    \
+		echo "$$tabs";									   \
+		exit 1;									     	   \
+	fi
+	@spaces=$$(grep -Pn '[ ]+$$' $(ALL_C) 2>/dev/null); if [ -n "$$spaces" ]; then             \
+		echo "\033[1;31mfail\033[0m: trailing whitespaces found:";                         \
+		echo "$$spaces";								   \
+		exit 1;										   \
+	fi
+	@for f in $(wildcard src/*.h $(TEST_DIR)/*.h); do                                          \
+		head -n 1 "$$f" | grep -q "#pragma once" || 					   \
+		(echo: "\033[1;31mfail\033[0m: missing #pragma once in $$f" && exit 1); 				   \
+	done
 
 compdb: clean
 	bear -- $(MAKE) test
-
-all: test
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
