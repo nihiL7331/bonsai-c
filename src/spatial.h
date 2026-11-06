@@ -39,6 +39,7 @@ res_t    spatial_grid2d_build(spatial_grid2d_t *grid, const spatial_entity2d_t *
 /* if world==NULL uses s_active_world */
 res_t    spatial_grid2d_build_from_ecs(spatial_grid2d_t *grid, ecs_world_t *world, arena_t *scratch);
 uint32_t spatial_query_aabb2d(const spatial_grid2d_t *grid, aabb2f box, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch);
+uint32_t spatial_query_radius2d(const spatial_grid2d_t *grid, vec2f center, float radius, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch);
 uint32_t spatial_query_point2d(const spatial_grid2d_t *grid, vec2f point, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out);
 
 /* ============================================================================================== */
@@ -66,6 +67,7 @@ res_t    spatial_grid3d_build(spatial_grid3d_t *grid, const spatial_entity3d_t *
 /* if world==NULL uses s_active_world */
 res_t    spatial_grid3d_build_from_ecs(spatial_grid3d_t *grid, ecs_world_t *world, arena_t *scratch);
 uint32_t spatial_query_aabb3d(const spatial_grid3d_t *grid, aabb3f box, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch);
+uint32_t spatial_query_radius3d(const spatial_grid3d_t *grid, vec3f center, float radius, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch);
 uint32_t spatial_query_point3d(const spatial_grid3d_t *grid, vec3f  point, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out);
 
 /* ============================================================================================== */
@@ -75,11 +77,18 @@ uint32_t spatial_query_point3d(const spatial_grid3d_t *grid, vec3f  point, uint3
 #define spatial_grid_init(grid, cell_sz, bucket_cnt)      _Generic((grid), spatial_grid2d_t *: spatial_grid2d_init,           spatial_grid3d_t *: spatial_grid3d_init)((grid), (cell_sz), (bucket_cnt))
 #define spatial_grid_build(grid, ents, ent_cnt, scratch)  _Generic((grid), spatial_grid2d_t *: spatial_grid2d_build,          spatial_grid3d_t *: spatial_grid3d_build)((grid), (ents), (ent_cnt), (scratch))
 #define spatial_grid_build_from_ecs(grid, world, scratch) _Generic((grid), spatial_grid2d_t *: spatial_grid2d_build_from_ecs, spatial_grid3d_t *: spatial_grid3d_build_from_ecs)((grid), (world), (scratch))
-#define spatial_query_aabb(grid, box, mask, out_ents, max_out, scratch) _Generic((grid),           \
+#define spatial_query_aabb(grid, box, mask, out_ents, max_out, scratch)                            \
+    _Generic((grid),                                                                               \
     spatial_grid2d_t *: spatial_query_aabb2d, const spatial_grid2d_t *: spatial_query_aabb2d,      \
     spatial_grid3d_t *: spatial_query_aabb3d, const spatial_grid3d_t *: spatial_query_aabb3d)      \
     ((grid), (box), (mask), (out_ents), (max_out), (scratch))
-#define spatial_query_point(grid, point, mask, out_ents, max_out) _Generic((grid),                 \
+#define spatial_query_radius(grid, center, radius, mask, out_ents, max_out, scratch)               \
+    _Generic((grid),                                                                               \
+    spatial_grid2d_t *: spatial_query_radius2d, const spatial_grid2d_t *: spatial_query_radius2d,  \
+    spatial_grid3d_t *: spatial_query_radius3d, const spatial_grid3d_t *: spatial_query_radius3d)  \
+    ((grid), (center), (radius), (mask), (out_ents), (max_out), (scratch))
+#define spatial_query_point(grid, point, mask, out_ents, max_out)                                  \
+    _Generic((grid),                                                                               \
     spatial_grid2d_t *: spatial_query_point2d, const spatial_grid2d_t *: spatial_query_point2d,    \
     spatial_grid3d_t *: spatial_query_point3d, const spatial_grid3d_t *: spatial_query_point3d)    \
     ((grid), (point), (mask), (out_ents), (max_out))

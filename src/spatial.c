@@ -283,6 +283,49 @@ done:
     return found;
 }
 
+
+uint32_t spatial_query_radius2d(const spatial_grid2d_t *grid, vec2f center, float radius, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch) {
+    ASSERT(grid,     "Attempted to query radius with NULL grid (center: " FMT_VEC2F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)",                    ARG_VEC2F(center), radius, mask, out_ents, max_out, scratch);
+    ASSERT(out_ents, "Attempted to query radius with NULL out_ents (grid: %p, center: " FMT_VEC2F ", radius: %.2f, mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",              grid, ARG_VEC2F(center), radius, mask,           max_out, scratch);
+    ASSERT(radius >= 0.0f, "Attempted to query with radius < 0.0f (grid: %p, center: " FMT_VEC2F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)", grid, ARG_VEC2F(center), radius, mask, out_ents, max_out, scratch);
+    if (!grid || !out_ents || !max_out || radius < 0.0f || !grid->entity_cnt || !grid->entries || !grid->cell_offs || !grid->entities) return 0;
+
+    uint64_t stack_buf[SPATIAL_STACK_WORDS];
+    spatial_bitset_t bs = _spatial_bitset_begin(grid->entity_cnt, stack_buf, scratch);
+    if (!bs.words) return 0;
+
+    /* narrow down to aabb, then check radius intersection */
+    aabb2f   box         = aabb_center_half(center, vec2f(radius, radius));
+    aabb2i   c           = _spatial_bounds_to_cells2d(box, grid->inv_cell_sz);
+    uint32_t bucket_mask = grid->bucket_cnt - 1;
+    uint32_t found       = 0;
+
+    for (int32_t cy = c.min_y; cy <= c.max_y; ++cy)
+        for (int32_t cx = c.min_x; cx <= c.max_x; ++cx) {
+            uint32_t hash = _spatial_hash2d(cx, cy, bucket_mask);
+
+            for (uint32_t idx = grid->cell_offs[hash]; idx < grid->cell_offs[hash + 1]; ++idx) {
+                uint32_t e_idx = grid->entries[idx];
+
+                /* deduplication check, update visited */
+                if (_spatial_bitset_test_set(&bs, e_idx)) continue;
+
+                /* layer bitmask check, where 0=match any */
+                if (mask && !(grid->entities[e_idx].mask & mask)) continue;
+
+                /* distance check on remains */
+                if (!aabb_inter_radius(grid->entities[e_idx].bounds, center, radius)) continue;
+
+                out_ents[found++] = grid->entities[e_idx].ent;
+                if (found == max_out) goto done;
+            }
+        }
+
+done:
+    _spatial_bitset_end(&bs);
+    return found;
+}
+
 uint32_t spatial_query_point2d(const spatial_grid2d_t *grid, vec2f point, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out) {
     ASSERT(grid, "Attempted to query point with NULL grid (point: " FMT_VEC2F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ")",     ARG_VEC2F(point), mask,             out_ents, max_out);
     ASSERT(out_ents, "Attempted to query point with NULL out_ents (grid: %p, point: " FMT_VEC2F ", mask: %" PRIu32 ", max_out: %" PRIu32 ")", grid,             ARG_VEC2F(point), mask,     max_out);
@@ -499,6 +542,50 @@ uint32_t spatial_query_aabb3d(const spatial_grid3d_t *grid, aabb3f box, uint32_t
 
                     /* aabb check on remains */
                     if (!aabb_inter(box, grid->entities[e_idx].bounds)) continue;
+
+                    out_ents[found++] = grid->entities[e_idx].ent;
+                    if (found == max_out) goto done;
+                }
+            }
+
+done:
+    _spatial_bitset_end(&bs);
+    return found;
+}
+
+
+uint32_t spatial_query_radius3d(const spatial_grid3d_t *grid, vec3f center, float radius, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch) {
+    ASSERT(grid,     "Attempted to query radius with NULL grid (center: " FMT_VEC3F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)",                    ARG_VEC3F(center), radius, mask, out_ents, max_out, scratch);
+    ASSERT(out_ents, "Attempted to query radius with NULL out_ents (grid: %p, center: " FMT_VEC3F ", radius: %.2f, mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",              grid, ARG_VEC3F(center), radius, mask,           max_out, scratch);
+    ASSERT(radius >= 0.0f, "Attempted to query with radius < 0.0f (grid: %p, center: " FMT_VEC3F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)", grid, ARG_VEC3F(center), radius, mask, out_ents, max_out, scratch);
+    if (!grid || !out_ents || !max_out || radius < 0.0f || !grid->entity_cnt || !grid->entries || !grid->cell_offs || !grid->entities) return 0;
+
+    uint64_t stack_buf[SPATIAL_STACK_WORDS];
+    spatial_bitset_t bs = _spatial_bitset_begin(grid->entity_cnt, stack_buf, scratch);
+    if (!bs.words) return 0;
+
+    /* narrow down to aabb, then check radius intersection */
+    aabb3f   box         = aabb_center_half(center, vec3f(radius, radius, radius));
+    aabb3i   c           = _spatial_bounds_to_cells3d(box, grid->inv_cell_sz);
+    uint32_t bucket_mask = grid->bucket_cnt - 1;
+    uint32_t found       = 0;
+
+    for (int32_t cz = c.min_z; cz <= c.max_z; ++cz)
+        for (int32_t cy = c.min_y; cy <= c.max_y; ++cy)
+            for (int32_t cx = c.min_x; cx <= c.max_x; ++cx) {
+                uint32_t hash = _spatial_hash3d(cx, cy, cz, bucket_mask);
+
+                for (uint32_t idx = grid->cell_offs[hash]; idx < grid->cell_offs[hash + 1]; ++idx) {
+                    uint32_t e_idx = grid->entries[idx];
+
+                    /* deduplication check, update visited */
+                    if (_spatial_bitset_test_set(&bs, e_idx)) continue;
+
+                    /* layer bitmask check, where 0=match any */
+                    if (mask && !(grid->entities[e_idx].mask & mask)) continue;
+
+                    /* distance check on remains */
+                    if (!aabb_inter_radius(grid->entities[e_idx].bounds, center, radius)) continue;
 
                     out_ents[found++] = grid->entities[e_idx].ent;
                     if (found == max_out) goto done;
