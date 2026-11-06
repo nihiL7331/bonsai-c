@@ -155,7 +155,7 @@ static void _reflect_init_lazy(void) {
 const comp_meta_t *reflect_comp_by_id(comp_id_t id) {
     ASSERT(id < COMP_CNT, "Attempted to grab component by out-of-range ID");
     if (id >= COMP_CNT) return NULL;
-    reflect_init_lazy();
+    _reflect_init_lazy();
 
     return &s_comp_reg[id];
 }
@@ -163,7 +163,7 @@ const comp_meta_t *reflect_comp_by_id(comp_id_t id) {
 const comp_meta_t *reflect_comp_by_name(const char *name) {
     ASSERT(name, "Attempted to grab component by NULL name");
     if (!name) return NULL;
-    reflect_init_lazy();
+    _reflect_init_lazy();
 
     for (size_t i = 0; i < COMP_CNT; ++i)
         if (strcmp(s_comp_reg[i].name, name) == 0) return &s_comp_reg[i];
