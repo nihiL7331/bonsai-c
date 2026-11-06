@@ -1,5 +1,6 @@
 #pragma once
 
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -19,6 +20,52 @@
 #define CACHE_LINE_SZ       64
 #define ALIGN_LINE_PTR(ptr) ((void *)(((uintptr_t)(ptr) + (CACHE_LINE_SZ - 1)) & ~((uintptr_t)CACHE_LINE_SZ - 1)))
 #define ALIGN_LINE_INT(x)   (((uintptr_t)(x) + (CACHE_LINE_SZ - 1)) & ~((uintptr_t)CACHE_LINE_SZ - 1))
+
+/* ============================================================================================== */
+/* >FORMATTING HELPERS                                                                            */
+/* ============================================================================================== */
+
+/* usage:                                                                 */
+/*      if v = (vec2f){ 1.0f, 2.0f }                                      */
+/*      "this failed, some vec2: " FMT_VEC2F "", ARG_VEC2F(v)             */
+/* expands to:                                                            */
+/*      "this failed, some vec2: (1.00, 2.00)"                            */
+
+#define FMT_VEC2F   "(%.2f, %.2f)"
+#define ARG_VEC2F(v) (v).x, (v).y
+
+#define FMT_VEC2I   "(%" PRId32 ", %" PRId32 ")"
+#define ARG_VEC2I(v) (v).x,       (v).y
+
+#define FMT_VEC3F   "(%.2f, %.2f, %.2f)"
+#define ARG_VEC3F(v) (v).x, (v).y, (v).z
+
+#define FMT_VEC3I   "(%" PRId32 ", %" PRId32 ", %" PRId32 ")"
+#define ARG_VEC3I(v) (v).x,       (v).y,       (v).z
+
+#define FMT_VEC4F   "(%.2f, %.2f, %.2f, %.2f)"
+#define ARG_VEC4F(v) (v).x, (v).y, (v).z, (v).w
+
+#define FMT_VEC4I   "(%" PRId32 ", %" PRId32 ", %" PRId32 ", %" PRId32 ")"
+#define ARG_VEC4I(v) (v).x,       (v).y,       (v).z,       (v).w
+
+#define FMT_MAT4F    "[" FMT_VEC4F "; " FMT_VEC4F "; " FMT_VEC4F "; " FMT_VEC4F "]"
+#define ARG_MAT4F(m) ARG_VEC4F((m).col[0]), ARG_VEC4F((m).col[1]), ARG_VEC4F((m).col[2]), ARG_VEC4F((m).col[3])
+
+#define FMT_AABB2F    "[" FMT_VEC2F " -> " FMT_VEC2F "]"
+#define ARG_AABB2F(b) ARG_VEC2F((b).min), ARG_VEC2F((b).max)
+
+#define FMT_AABB2I    "[" FMT_VEC2I " -> " FMT_VEC2I "]"
+#define ARG_AABB2I(b) ARG_VEC2I((b).min), ARG_VEC2I((b).max)
+
+#define FMT_AABB3F    "[" FMT_VEC3F " -> " FMT_VEC3F "]"
+#define ARG_AABB3F(b) ARG_VEC3F((b).min), ARG_VEC3F((b).max)
+
+#define FMT_AABB3I    "[" FMT_VEC3I " -> " FMT_VEC3I "]"
+#define ARG_AABB3I(b) ARG_VEC3I((b).min), ARG_VEC3I((b).max)
+
+#define FMT_QUAT    FMT_VEC4F
+#define ARG_QUAT(q) ARG_VEC4F(q)
 
 /* ============================================================================================== */
 /* >GENERIC HELPERS                                                                               */
