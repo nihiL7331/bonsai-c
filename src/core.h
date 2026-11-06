@@ -1,5 +1,6 @@
 #pragma once
 
+#include <math.h>
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -90,6 +91,8 @@
 #define MAX(...) _MAX_SELECT(__VA_ARGS__, _MAX4, _MAX3, _MAX2, 0)(__VA_ARGS__)
 
 #define CLAMP(x, lo, hi) (((x) < (lo) ? (lo) : (((x) > (hi)) ? (hi) : (x))))
+
+#define ABS(x) _Generic((x) + 0, float: fabsf, double: fabs, int: abs, long: labs, long long: llabs)((x))
 
 #define IS_POW2(x) ((x) && !(((x) & ((x) - 1))))
 

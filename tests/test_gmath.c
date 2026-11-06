@@ -1,3 +1,4 @@
+#include "core.h"
 #include "gmath.h"
 #include "test.h"
 
@@ -9,7 +10,7 @@
 #define EPS 0.0001f
 
 static inline bool feq(float a, float b) {
-    return fabsf(a - b) <= EPS;
+    return ABS(a - b) <= EPS;
 }
 
 int main(void) {

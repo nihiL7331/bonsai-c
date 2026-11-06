@@ -99,6 +99,11 @@ typedef union quatf {
     _DEF_VEC_BINOP(NAME, DIM, sub, -)                                                              \
     _DEF_VEC_BINOP(NAME, DIM, mul, *)                                                              \
     _DEF_VEC_BINOP(NAME, DIM, div, /)                                                              \
+    static inline NAME NAME##_abs(NAME v) {                                                        \
+        NAME r = {0};                                                                              \
+        for (size_t i = 0; i < (DIM); ++i) r.v[i] = ABS(v.v[i]);                                   \
+        return r;                                                                                  \
+    }                                                                                              \
     static inline NAME NAME##_scale(NAME v, T s) {                                                 \
         NAME r = {0};                                                                              \
         for (size_t i = 0; i < (DIM); ++i) r.v[i] = v.v[i] * s;                                    \
@@ -165,6 +170,7 @@ DEF_VEC_CROSS3(vec3i)
 
 #define vec_len_sq(v) _VEC_GEN_UNARY(len_sq, v)
 #define vec_len(v)    _VEC_GEN_UNARY(len, v)
+#define vec_abs(v)    _VEC_GEN_UNARY(abs, v)
 
 #define _VEC_GEN_UNARY_FLOAT(FN, v) _Generic((v), vec2f: vec2f_##FN, vec3f: vec3f_##FN, vec4f: vec4f_##FN)((v))
 
@@ -234,7 +240,7 @@ static inline mat3f mat3f_inv(mat3f m) {
     float c20 =  (m.col[1].x * m.col[2].y - m.col[2].x * m.col[1].y);
 
     float det = m.col[0].x * c00 + m.col[0].y * c10 + m.col[0].z * c20;
-    if (fabsf(det) <= 1e-6f) return (mat3f){0};
+    if (ABS(det) <= 1e-6f) return (mat3f){0};
     float inv_det = 1.0f / det;
 
     return mat3f(
