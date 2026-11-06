@@ -26,6 +26,7 @@ extern "C" {
 #include "gmath.h"
 #include "reflect.h"
 #include "ecs.h"
+#include "spatial.h"
 
 #ifdef __cplusplus
 }
