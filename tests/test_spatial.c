@@ -293,6 +293,51 @@ int main(void) {
         TEST_ASSERT(cnt == 1 && out[0] == (entity_handle_t)200, "3D aabb mask exp 200");
     } TEST_CASE_END();
 
+    TEST_CASE("spatial_radius2d", "queries circle area with exact corner dist") {
+        arena_reset(&s_scratch_arena);
+        spatial_grid2d_t g;
+        spatial_grid2d_init(&g, 32.0f, 256);
+
+        spatial_entity2d_t ents[] = {
+            { .ent = (entity_handle_t)1, .bounds = aabb2f(vec2f(10, 10), vec2f(20, 20)), .mask = 0x01 },
+            { .ent = (entity_handle_t)2, .bounds = aabb2f(vec2f(50, 50), vec2f(60, 60)), .mask = 0x02 },
+        };
+
+        spatial_grid2d_build(&g, ents, ARR_CNT(ents), &s_scratch_arena);
+        entity_handle_t out[4];
+
+        uint32_t cnt = spatial_query_radius(&g, vec2f(15, 15), 1.0f, 0, out, 4, &s_scratch_arena);
+        TEST_ASSERT(cnt == 1 && out[0] == (entity_handle_t)1, "radius inside exp 1");
+
+        cnt = spatial_query_radius(&g, vec2f(23, 24), 4.9f, 0, out, 4, &s_scratch_arena);
+        TEST_ASSERT(cnt == 0, "radius 4.9 outside corner exp 0");
+
+        cnt = spatial_query_radius(&g, vec2f(23, 24), 5.1f, 0, out, 4, &s_scratch_arena);
+        TEST_ASSERT(cnt == 1 && out[0] == (entity_handle_t)1, "radius 5.1 inside corner exp 1");
+
+        cnt = spatial_query_radius2d(&g, vec2f(15, 15), 10.0f, 0x02, out, 4, &s_scratch_arena);
+        TEST_ASSERT(cnt == 0, "radius mask mismatch exp 0");
+    } TEST_CASE_END();
+
+    TEST_CASE("spatial_radius3d", "queries sphere volume with corner distance") {
+        arena_reset(&s_scratch_arena);
+        spatial_grid3d_t g;
+        spatial_grid3d_init(&g, 32.0f, 256);
+
+        spatial_entity3d_t ents[] = {
+            { .ent = (entity_handle_t)10, .bounds = aabb3f(vec3f(10, 10, 10), vec3f(20, 20, 20)), .mask = 0x01 },
+        };
+
+        spatial_grid3d_build(&g, ents, ARR_CNT(ents), &s_scratch_arena);
+        entity_handle_t out[4];
+
+        uint32_t cnt = spatial_query_radius(&g, vec3f(22, 23, 26), 6.9f, 0, out, 4, &s_scratch_arena);
+        TEST_ASSERT(cnt == 0, "radius 6.9 outside 3d corner exp 0");
+
+        cnt = spatial_query_radius3d(&g, vec3f(22, 23, 26), 7.1f, 0, out, 4, &s_scratch_arena);
+        TEST_ASSERT(cnt == 1 && out[0] == (entity_handle_t)10, "radius 7.1 inside 3d corner exp 1");
+    } TEST_CASE_END();
+
     TEST_CASE("spatial_ecs3d", "builds 3D grid from ECS transforms and colliders") {
         reset_world();
         spatial_grid3d_t g;
