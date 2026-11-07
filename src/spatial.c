@@ -85,19 +85,29 @@ static inline aabb3i _spatial_bounds_to_cells3d(aabb3f b, float inv_cell_sz) {
 /* >HASHING LOGIC                                                                                 */
 /* ============================================================================================== */
 
-#define SPATIAL_HASH_PRIME_X 73856093U
-#define SPATIAL_HASH_PRIME_Y 19349663U
-#define SPATIAL_HASH_PRIME_Z 83492791U
+#define SPATIAL_HASH_PRIME_X      73856093U
+#define SPATIAL_HASH_PRIME_Y      19349663U
+#define SPATIAL_HASH_PRIME_Z      83492791U
+#define SPATIAL_MURMUR_MULTIPLIER 0x85EBCA6BU
+
+static inline uint32_t _spatial_murmurmix(uint32_t h) {
+    h ^= h >> 16;
+    h *= SPATIAL_MURMUR_MULTIPLIER;
+    h ^= h >> 13;
+    return h;
+}
 
 static inline uint32_t _spatial_hash2d(int32_t cx, int32_t cy, uint32_t mask) {
-    return ((((uint32_t)cx * SPATIAL_HASH_PRIME_X) ^
-             ((uint32_t)cy * SPATIAL_HASH_PRIME_Y))) & mask;
+    uint32_t h = ((uint32_t)cx * SPATIAL_HASH_PRIME_X) ^
+                 ((uint32_t)cy * SPATIAL_HASH_PRIME_Y);
+    return _spatial_murmurmix(h) & mask;
 }
 
 static inline uint32_t _spatial_hash3d(int32_t cx, int32_t cy, int32_t cz, uint32_t mask) {
-    return ((((uint32_t)cx * SPATIAL_HASH_PRIME_X) ^
-             ((uint32_t)cy * SPATIAL_HASH_PRIME_Y) ^
-             ((uint32_t)cz * SPATIAL_HASH_PRIME_Z))) & mask;
+    uint32_t h = ((uint32_t)cx * SPATIAL_HASH_PRIME_X) ^
+                 ((uint32_t)cy * SPATIAL_HASH_PRIME_Y) ^
+                 ((uint32_t)cz * SPATIAL_HASH_PRIME_Z);
+    return _spatial_murmurmix(h) & mask;
 }
 
 /* ============================================================================================== */
