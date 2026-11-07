@@ -1,5 +1,15 @@
 #pragma once
 
+/*
+====================
+core.h
+
+Foundational engine utilities: 64-byte cache-line alignment, vector/matrix
+printf formatters, branch-free math macros, diagnostic logging,
+debug-only assertions, fatal panics, and the global `res_t` status code enum.
+====================
+*/
+
 #include <math.h>
 #include <inttypes.h>
 #include <stdarg.h>
@@ -19,7 +29,26 @@
 /* ============================================================================================== */
 
 #define CACHE_LINE_SZ       64
+
+/*
+====================
+ALIGN_LINE_PTR
+
+Rounds a memory pointer upwards to the nearest 64-byte
+cache-line bounadry (`CACHE_LINE_SZ`). Used by arena allocator 
+to prevent false sharing and ensure optimal SIMD vector alignment.
+====================
+*/
 #define ALIGN_LINE_PTR(ptr) ((void *)(((uintptr_t)(ptr) + (CACHE_LINE_SZ - 1)) & ~((uintptr_t)CACHE_LINE_SZ - 1)))
+
+/*
+====================
+ALIGN_LINE_INT
+
+Rounds an integer size or byte offset upwards to the
+nearest 64-byte cache-line multiple (`CACHE_LINE_SZ`).
+====================
+*/
 #define ALIGN_LINE_INT(x)   (((uintptr_t)(x) + (CACHE_LINE_SZ - 1)) & ~((uintptr_t)CACHE_LINE_SZ - 1))
 
 /* ============================================================================================== */
@@ -80,22 +109,66 @@
 #define _MIN3(a, b, c)    _MIN2(_MIN2(a, b), c)
 #define _MIN4(a, b, c, d) _MIN2(_MIN3(a, b, c), d)
 #define _MIN_SELECT(_1, _2, _3, _4, NAME, ...) NAME
-/* variadic 1-4 args math minimum */
+
+/*
+====================
+MIN
+
+Variadic minimum macro supporting 2 to 4 arguments of comparable types.
+Evaluated via macro overload selection (`_MIN_SELECT`).
+====================
+*/
 #define MIN(...) _MIN_SELECT(__VA_ARGS__, _MIN4, _MIN3, _MIN2, 0)(__VA_ARGS__)
 
 #define _MAX2(a, b)       (((a) > (b)) ? (a) : (b))
 #define _MAX3(a, b, c)    _MAX2(_MAX2(a, b), c)
 #define _MAX4(a, b, c, d) _MAX2(_MAX3(a, b, c), d)
 #define _MAX_SELECT(_1, _2, _3, _4, NAME, ...) NAME
-/* variadic 1-4 args math maximum */
+
+/*
+====================
+MAX
+
+Variadic maximum macro supporting 2 to 4 arguments of comparable types.
+Evaluated via macro overload selection (`_MAX_SELECT`).
+====================
+*/
 #define MAX(...) _MAX_SELECT(__VA_ARGS__, _MAX4, _MAX3, _MAX2, 0)(__VA_ARGS__)
 
+/*
+====================
+CLAMP
+
+Clamps `x` within the inclusive range `[lo, hi]`.
+====================
+*/
 #define CLAMP(x, lo, hi) (((x) < (lo) ? (lo) : (((x) > (hi)) ? (hi) : (x))))
 
+/*
+====================
+ABS
+
+Type-generic absolute value operator.
+Dispatches to `fabsf`, `fabs`, `abs`, `labs` or `llabs` based on arg type.
+Expands `int8/16_t` to `int` via `(x) + 0` casting and uses `abs`.
+====================
+*/
 #define ABS(x) _Generic((x) + 0, float: fabsf, double: fabs, int: abs, long: labs, long long: llabs)((x))
 
+/*
+====================
+IS_POW2
+
+Evaluates whether integer `x` is a non-zero power of 2 without branching.
+====================
+*/
 #define IS_POW2(x) ((x) && !(((x) & ((x) - 1))))
 
+/*
+BIT
+
+Generates an unsigned 64-bit integer bitmask with bit `n` set.
+*/
 #define BIT(n) (1ULL << (n))
 
 #define KB(x) ((size_t)(x) * 1024ULL)
@@ -132,13 +205,42 @@ static inline void _log(const char *color, const char *prefix, FILE *s,
     fprintf(s, "\n");
 }
 
+/*
+====================
+LOG_WARN
+
+Emits a formatted diagnostic warning to `stderr`
+with file, line, and function context.
+Active in debug builds, compiles out to `NOOP` in release.
+====================
+*/
 #ifdef DEBUG
 #define LOG_WARN(...) _log(LOG_CLR_YLW, "WARN", stderr, __FILE__, __LINE__, __func__, __VA_ARGS__)
 #else  // !DEBUG
 #define LOG_WARN(...) NOOP
 #endif // !DEBUG
+
+/*
+====================
+LOG_ERR
+
+Emits a formatted error log to `stderr`
+with file, line, and function context.
+Active across all build configurations (debug/release).
+====================
+*/
 #define LOG_ERR(...)  _log(LOG_CLR_RED, "ERR ", stderr, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
+/*
+====================
+ASSERT
+
+In debug builds, evaluates `cond`. If false,
+logs failure details via `LOG_ERR` and triggers `TRAP()`.
+In release builds, compiles out to `NOOP`.
+Hot paths assume contracts hold.
+====================
+*/
 #ifdef DEBUG
 #define ASSERT(cond, ...)                                                                          \
     do {                                                                                           \
@@ -151,12 +253,43 @@ static inline void _log(const char *color, const char *prefix, FILE *s,
 #define ASSERT(cond, ...) NOOP
 #endif // !DEBUG
 
+/*
+====================
+PANIC
+
+Unrecoverable fatal error handler.
+Logs the formatted error message via `LOG_ERR`
+and halts execution via `TRAP()` in all build
+configurations (debug and release).
+====================
+*/
 #define PANIC(...)                                                                                 \
     do {                                                                                           \
         LOG_ERR("PANIC: " __VA_ARGS__);                                                            \
         TRAP();                                                                                    \
     } while (0)
 
+/*
+====================
+res_t
+
+Global result and error status code enumeration.
+Functions returning `res_t` adhere to defensive
+lifecycle and boundary return conventions.
+
+Values:
+- `OK`:       Operation completed successfully.
+- `EOOM`:     Out of memory, capacity exceeded.
+- `EINVAL`:   Invalid parameter (e.g., unexpected NULL ptr or out-of-range value).
+- `ENOTFND`:  Requested entity, component, or asset was not found.
+- `EFULL`:    Static capacity or fixed-size collection is full.
+- `ESCHLOCK`: Concurrency or ring-buffer contention failure.
+- `ESCRTOUT`: Script execution timed out or aborted.
+- `ERLLBCK`:  State rollback or frame transaction verification failed.
+- `EIO`:      I/O or serialization failure.
+- `WEMPTY`:   Empty collection, zero elements, or zero usable capacity.
+====================
+*/
 typedef enum res {
     OK,
     EOOM,
