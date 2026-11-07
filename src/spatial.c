@@ -1,3 +1,17 @@
+/*
+====================
+spatial.c
+
+2D and 3D uniform spatial hashing broadphase implementation.
+Features:
+- deterministic 2-pass counting sort for linear bucket construction
+- zero heap allocation during ticks via frame scratch arena allocations
+- bitset for deduplication (for <=2048 entities stack-allocated)
+- Teschner prime spatial hashing for coordinate-to-bucket mapping
+- Jim Arvo's clamped distance algorithm for exact circular and spherical queries
+====================
+*/
+
 #include "spatial.h"
 #include "core.h"
 
