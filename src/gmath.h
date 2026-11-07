@@ -1,5 +1,22 @@
 #pragma once
 
+/*
+====================
+gmath.h
+
+Linear algebra and geometric math pipeline.
+
+Features:
+- 2D, 3D and 4D vector types (float and int32) with type-generic macros
+- Column-major 3x3 and 4x4 matrices
+- Axis-aligned bounding boxes
+- Hamilton quaternions
+- Viewport projection for headless software capture
+
+Each type explicitly states its dimension count and scalar type in name.
+====================
+*/
+
 #include "core.h"
 
 #include <math.h>
@@ -15,21 +32,98 @@
 #define VEC3_TYPEDEF(NAME, T) typedef union NAME { struct { T x, y, z;    }; T v[3]; } NAME;
 #define VEC4_TYPEDEF(NAME, T) typedef union NAME { struct { T x, y, z, w; }; T v[4]; } NAME;
 
+/*
+====================
+vec2f
+
+2D single-precision floating-point vector union.
+Accessible via named components `x`, `y` or array `v[2]`.
+Occupies exactly 8 bytes.
+====================
+*/
 VEC2_TYPEDEF(vec2f, float)
+
+/*
+====================
+vec2i
+
+2D 32-bit signed integer vector union.
+Accessible via named components `x`, `y` or array `v[2]`.
+Occupies exactly 8 bytes.
+====================
+*/
 VEC2_TYPEDEF(vec2i, int32_t)
 
+/*
+====================
+vec3f
+
+3D single-precision floating-point vector union.
+Accessible via named components `x`, `y`, `z` or array `v[3]`.
+Occupies exactly 12 bytes.
+====================
+*/
 VEC3_TYPEDEF(vec3f, float)
+
+/*
+====================
+vec3i
+
+3D 32-bit signed integer vector union.
+Accessible via named components `x`, `y`, `z` or array `v[3]`.
+Occupies exactly 12 bytes.
+====================
+*/
 VEC3_TYPEDEF(vec3i, int32_t)
 
+/*
+====================
+vec4f
+
+4D single-precision floating-point vector union.
+Accessible via named components `x`, `y`, `z`, `w` or array `v[4]`.
+Occupies exactly 16 bytes.
+====================
+*/
 VEC4_TYPEDEF(vec4f, float)
+
+/*
+====================
+vec4i
+
+4D 32-bit signed integer vector union.
+Accessible via named components `x`, `y`, `z`, `w` or array `v[4]`.
+Occupies exactly 16 bytes.
+====================
+*/
 VEC4_TYPEDEF(vec4i, int32_t)
 
+/*
+====================
+mat3f
+
+3x3 column-major matrix representation.
+Memory stores 3 contiguous column vectors.
+Accessible via by scalars via `v[9]`, `cols[3][3]`
+or by column (`vec3f`) via `col[3]`.
+====================
+*/
 typedef union mat3f {
     float v[9];
     float cols[3][3];
     vec3f col[3];
 } mat3f;
 
+/*
+====================
+mat4f
+
+4x4 column-major matrix representation.
+Memory stores 4 contiguous column vectors.
+Accessible via by scalars via `v[16]`, `cols[4][4]`
+or by column (`vec4f`) via `col[4]`.
+====================
+*/
 typedef union mat4f {
     float v[16];
     float cols[4][4];
@@ -39,12 +133,59 @@ typedef union mat4f {
 #define AABB2_TYPEDEF(NAME, VEC_T, T) typedef union NAME { struct { VEC_T min, max; }; struct { T min_x, min_y,        max_x, max_y;        }; T v[4]; } NAME;
 #define AABB3_TYPEDEF(NAME, VEC_T, T) typedef union NAME { struct { VEC_T min, max; }; struct { T min_x, min_y, min_z, max_x, max_y, max_z; }; T v[6]; } NAME;
 
+/*
+====================
+aabb2f
+
+2D floating-point axis-aligned bounding box.
+Stores extents `min`, `max` (accessible as `vec2f` or scalars `min_x/y`, `max_x/y`).
+Invariants assume `min <= max` on all axes.
+====================
+*/
 AABB2_TYPEDEF(aabb2f, vec2f, float)
+
+/*
+====================
+aabb2i
+
+2D 32-bit integer axis-aligned bounding box.
+Stores extents `min`, `max` (accessible as `vec2i` or scalars `min_x/y`, `max_x/y`).
+Invariants assume `min <= max` on all axes.
+====================
+*/
 AABB2_TYPEDEF(aabb2i, vec2i, int32_t)
 
+/*
+====================
+aabb3f
+
+3D floating-point axis-aligned bounding box.
+Stores extents `min`, `max` (accessible as `vec3f` or scalars `min_x/y`, `max_x/y`).
+Invariants assume `min <= max` on all axes.
+====================
+*/
 AABB3_TYPEDEF(aabb3f, vec3f, float)
+
+/*
+====================
+aabb3i
+
+3D 32-bit integer axis-aligned bounding box.
+Stores extents `min`, `max` (accessible as `vec3i` or scalars `min_x/y`, `max_x/y`).
+Invariants assume `min <= max` on all axes.
+====================
+*/
 AABB3_TYPEDEF(aabb3i, vec3i, int32_t)
 
+/*
+====================
+quatf
+
+Hamilton orientation quaternion.
+Stores vector part `xyz` and scalar real part `w`.
+Invariants assume unit length (`quatf_norm`) for pure rotation representations.
+====================
+*/
 typedef union quatf {
     struct { float x, y, z, w; };
     vec3f  xyz;
@@ -164,6 +305,16 @@ DEF_VEC_CROSS3(vec3i)
 #define vec_mul(a, b)   _VEC_GEN_BINARY(mul, a, b)
 #define vec_div(a, b)   _VEC_GEN_BINARY(div, a, b)
 #define vec_scale(a, s) _VEC_GEN_BINARY(scale, a, s)
+
+/*
+====================
+vec_dot
+
+Computes the inner scalar product of two vectors.
+
+Returns the inner product scalar.
+====================
+*/
 #define vec_dot(a, b)   _VEC_GEN_BINARY(dot, a, b)
 
 #define _VEC_GEN_UNARY(FN, v) _Generic((v), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN, vec4f: vec4f_##FN, vec4i: vec4i_##FN)((v))
@@ -174,14 +325,43 @@ DEF_VEC_CROSS3(vec3i)
 
 #define _VEC_GEN_UNARY_FLOAT(FN, v) _Generic((v), vec2f: vec2f_##FN, vec3f: vec3f_##FN, vec4f: vec4f_##FN)((v))
 
+/*
+====================
+vec_norm
+
+Normalizes a floating-point vector to unit length.
+Guards against zero-division by returning zero vector when length is zero.
+
+Returns the normalized unit vector.
+====================
+*/
 #define vec_norm(v) _VEC_GEN_UNARY_FLOAT(norm, v)
 
 #define _VEC_GEN_BINARY_FLOAT(FN, a, b) _Generic((a), vec2f: vec2f_##FN, vec3f: vec3f_##FN, vec4f: vec4f_##FN)((a), (b))
 
+/*
+====================
+vec_dir
+
+Calculates the normalized direction vector
+from point `from` to point `to`.
+
+Returns the normalized direction vector.
+====================
+*/
 #define vec_dir(from, to) _VEC_GEN_BINARY_FLOAT(dir, from, to)
 
 #define _VEC_GEN_BINARY_23(FN, a, b)  _Generic((a), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN)((a), (b))
 
+/*
+====================
+vec_cross
+
+Calculates the cross product:
+- for 3D vectors returns perpendicular 3D vector `(a x b)`.
+- for 2D vectors returns scalar determinant area `(a.x * b.y - a.y * b.x)`.
+====================
+*/
 #define vec_cross(a, b) _VEC_GEN_BINARY_23(cross, a, b)
 
 /* ============================================================================================== */
@@ -228,12 +408,32 @@ static inline mat3f mat3f_from_mat4f(mat4f m) {
     );
 }
 
+/*
+====================
+mat3f_det
+
+Calculates the determinant of a 3x3 matrix.
+
+Returns determinant scalar value.
+====================
+*/
 static inline float mat3f_det(mat3f m) {
     return m.col[0].x * (m.col[1].y * m.col[2].z - m.col[1].z * m.col[2].y) -
            m.col[1].x * (m.col[0].y * m.col[2].z - m.col[0].z * m.col[2].y) +
            m.col[2].x * (m.col[0].y * m.col[1].z - m.col[0].z * m.col[1].y);
 }
 
+/*
+====================
+mat3f_inv
+
+Computes the analytic matrix inverse of a 3x3 matrix via adjugate cofactors.
+
+Returns:
+- zero matrix if singular (|det| <= 1e-6).
+- inverted 3x3 matrix otherwise.
+====================
+*/
 static inline mat3f mat3f_inv(mat3f m) {
     float c00 =  (m.col[1].y * m.col[2].z - m.col[2].y * m.col[1].z);
     float c10 = -(m.col[1].x * m.col[2].z - m.col[2].x * m.col[1].z);
@@ -250,10 +450,29 @@ static inline mat3f mat3f_inv(mat3f m) {
     );
 }
 
+/*
+====================
+mat3f_normal
+
+Computes the normal transform matrix (inverse transpose of upper 3x3 model matrix).
+Corrects normal vectors under non-uniform scaling.
+
+Returns 3x3 normal matrix.
+====================
+*/
 static inline mat3f mat3f_normal(mat4f model) {
     return mat3f_transp(mat3f_inv(mat3f_from_mat4f(model)));
 }
 
+/*
+====================
+mat4f_trans
+
+Generates a 4x4 translation matrix from a 3D displacement vector `v`.
+
+Returns the 4x4 translation matrix.
+====================
+*/
 static inline mat4f mat4f_trans(vec3f v) {
     return mat4f(
         vec4f(1,   0,   0,   0),
@@ -263,6 +482,16 @@ static inline mat4f mat4f_trans(vec3f v) {
     );
 }
 
+/*
+====================
+mat4f_rotz
+
+Generates a 4x4 rotation matrix around the
+Z-axis from an angle in radians `angle_rad`.
+
+Returns the 4x4 rotation matrix.
+====================
+*/
 static inline mat4f mat4f_rotz(float angle_rad) {
     float c = cosf(angle_rad);
     float s = sinf(angle_rad);
@@ -274,6 +503,16 @@ static inline mat4f mat4f_rotz(float angle_rad) {
     );
 }
 
+/*
+====================
+mat4f_scale
+
+Generates a 4x4 scaling matrix from a
+3D per-axis scale vector `scale`.
+
+Returns the 4x4 scaling matrix.
+====================
+*/
 static inline mat4f mat4f_scale(vec3f scale) {
     return mat4f(
         vec4f(scale.x, 0,       0,       0),
@@ -283,6 +522,18 @@ static inline mat4f mat4f_scale(vec3f scale) {
     );
 }
 
+/*
+====================
+mat4f_trans_2d
+
+Combines 2D translation (`pos`),
+Z-rotation (`angle_rad`),
+and uniform scale (`scale`)
+into a single 4x4 affine matrix.
+
+Returns the combined 4x4 transformation matrix.
+====================
+*/
 static inline mat4f mat4f_trans_2d(vec2f pos, float angle_rad, float scale) {
     float c = cosf(angle_rad) * scale;
     float s = sinf(angle_rad) * scale;
@@ -294,6 +545,16 @@ static inline mat4f mat4f_trans_2d(vec2f pos, float angle_rad, float scale) {
     );
 }
 
+/*
+====================
+mat4f_ortho
+
+Constructs an orthographic projection matrix
+mapping view bounds to [-1, 1] NDC space.
+
+Returns the 4x4 orthographic projection matrix.
+====================
+*/
 static inline mat4f mat4f_ortho(float left, float right, float bot, float top, float near, float far) {
     return mat4f(
         vec4f(2.0f / (right - left),            0,                          0,                            0),
@@ -303,6 +564,16 @@ static inline mat4f mat4f_ortho(float left, float right, float bot, float top, f
     );
 }
 
+/*
+====================
+mat4f_persp
+
+Constructs a perspective projection matrix
+with right-handed depth range [-1, 1].
+
+Returns the 4x4 perspective projection matrix.
+====================
+*/
 static inline mat4f mat4f_persp(float fov_rad, float aspect, float near, float far) {
     float f = 1.0f / tanf(fov_rad * 0.5f);
     return mat4f(
@@ -375,14 +646,107 @@ DEF_AABB_OPS(aabb3f, vec3f, float, 3)
 DEF_AABB_FLOAT_CENTER(aabb3f, vec3f)
 DEF_AABB_OPS(aabb3i, vec3i, int32_t, 3)
 
-#define aabb_size(b)                         _Generic((b),      aabb2f: aabb2f_size,         aabb2i: aabb2i_size,         aabb3f: aabb3f_size,         aabb3i: aabb3i_size)((b))
-#define aabb_center(b)                       _Generic((b),      aabb2f: aabb2f_center,                                    aabb3f: aabb3f_center                           )((b))
-#define aabb_inter(a, b)                     _Generic((a),      aabb2f: aabb2f_inter,        aabb2i: aabb2i_inter,        aabb3f: aabb3f_inter,        aabb3i: aabb3i_inter)((a), (b))
-#define aabb_contains(b, p)                  _Generic((b),      aabb2f: aabb2f_contains,     aabb2i: aabb2i_contains,     aabb3f: aabb3f_contains,     aabb3i: aabb3i_contains)((b), (p))
-#define aabb_merge(a, b)                     _Generic((a),      aabb2f: aabb2f_merge,        aabb2i: aabb2i_merge,        aabb3f: aabb3f_merge,        aabb3i: aabb3i_merge)((a), (b))
-#define aabb_inter_radius(b, center, radius) _Generic((b),      aabb2f: aabb2f_inter_radius, aabb2i: aabb2i_inter_radius, aabb3f: aabb3f_inter_radius, aabb3i: aabb3i_inter_radius)((b), (center), (radius))
-#define aabb_pos_size(pos, size)             _Generic((pos),    vec2f:  aabb2f_pos_size,     vec2i:  aabb2i_pos_size,     vec3f:  aabb3f_pos_size,     vec3i:  aabb3i_pos_size)((pos), (size))
-#define aabb_center_half(center, half)       _Generic((center), vec2f:  aabb2f_center_half,  vec2i:  aabb2i_center_half,  vec3f:  aabb3f_center_half,  vec3i:  aabb3i_center_half)((center), (half))
+/*
+====================
+aabb_size
+
+Computes the extents (dimensions) of an AABB (`max - min`).
+
+Returns the vector representing width, height (and, for 3D, depth).
+====================
+*/
+#define aabb_size(b) _Generic((b), aabb2f: aabb2f_size, aabb2i: aabb2i_size, aabb3f: aabb3f_size, aabb3i: aabb3i_size)((b))
+
+/*
+====================
+aabb_center
+
+Computes the midpoint center of a floating-point AABB `(min + max) * 0.5`.
+
+Returns the center vector.
+====================
+*/
+#define aabb_center(b) _Generic((b), aabb2f: aabb2f_center, aabb3f: aabb3f_center)((b))
+
+/*
+====================
+aabb_inter
+
+Tests whether two AABBs overlap.
+
+Returns:
+- `true`  if boxes overlap on all axes.
+- `false` otherwise.
+====================
+*/
+#define aabb_inter(a, b) _Generic((a), aabb2f: aabb2f_inter, aabb2i: aabb2i_inter, aabb3f: aabb3f_inter, aabb3i: aabb3i_inter)((a), (b))
+
+/*
+====================
+aabb_contains
+
+Tests whether point `p` resides within
+the inclusive bounds of AABB `b`.
+
+Returns:
+- `true`  if point is enclosed.
+- `false` otherwise.
+====================
+*/
+#define aabb_contains(b, p) _Generic((b), aabb2f: aabb2f_contains, aabb2i: aabb2i_contains, aabb3f: aabb3f_contains, aabb3i: aabb3i_contains)((b), (p))
+
+/*
+====================
+aabb_merge
+
+Computes the minimal bounding box
+enclosing both `a` and `b`.
+
+Returns the merged bounding box.
+====================
+*/
+#define aabb_merge(a, b) _Generic((a), aabb2f: aabb2f_merge, aabb2i: aabb2i_merge, aabb3f: aabb3f_merge, aabb3i: aabb3i_merge)((a), (b))
+
+/*
+====================
+aabb_inter_radius
+
+Tests intersection between an AABB and
+a circle (2D) or sphere (3D).
+Uses Jim Arvo's clamped distance algorithm:
+clamps sphere center to box extents and checks
+if squared distance <= radius^2.
+
+Returns:
+- `true`  if circle/sphere intersects or is contained within AABB.
+- `false` otherwise.
+====================
+*/
+#define aabb_inter_radius(b, center, radius) _Generic((b), aabb2f: aabb2f_inter_radius, aabb2i: aabb2i_inter_radius, aabb3f: aabb3f_inter_radius, aabb3i: aabb3i_inter_radius)((b), (center), (radius))
+
+/*
+====================
+aabb_pos_size
+
+Constructs an AABB from a position
+origin `pos` and dimensions `size`.
+
+Returns the constructed AABB.
+====================
+*/
+#define aabb_pos_size(pos, size) _Generic((pos), vec2f: aabb2f_pos_size, vec2i: aabb2i_pos_size, vec3f: aabb3f_pos_size, vec3i: aabb3i_pos_size)((pos), (size))
+
+/*
+====================
+aabb_center_half
+
+Constructs an AABB from a center
+point `center` and half-extents `half`.
+
+Returns the constructed AABB.
+====================
+*/
+#define aabb_center_half(center, half) _Generic((center), vec2f: aabb2f_center_half, vec2i: aabb2i_center_half, vec3f: aabb3f_center_half, vec3i: aabb3i_center_half)((center), (half))
 
 /* ============================================================================================== */
 /* >QUATERNION LOGIC                                                                              */
@@ -392,12 +756,34 @@ static inline quatf quatf_id(void) {
     return quatf(0, 0, 0, 1);
 }
 
+/*
+====================
+quatf_axis_angle
+
+Generates a unit quaternion representing rotation
+`angle_rad` radians around `axis`.
+Precondition: `axis` must be normalized.
+
+Returns the unit orientation quaternion.
+====================
+*/
 static inline quatf quatf_axis_angle(vec3f axis, float angle_rad) {
     float h = angle_rad * 0.5f;
     float s = sinf(h);
     return quatf(axis.x * s, axis.y * s, axis.z * s, cosf(h));
 }
 
+/*
+====================
+quatf_from_euler
+
+Constructs an orientation quaternion from
+Euler angles in radians.
+Applied in pitch (X) -> yaw (Y) -> roll (Z) order.
+
+Returns the unit orientation quaternion.
+====================
+*/
 static inline quatf quatf_from_euler(float pitch, float yaw, float roll) {
     float hp = pitch * 0.5f, hy = yaw * 0.5f, hr = roll * 0.5f;
     float sp = sinf(hp),     sy = sinf(hy),   sr = sinf(hr);
@@ -414,6 +800,16 @@ static inline float quatf_dot(quatf a, quatf b) {
     return vec4f_dot(a.xyzw, b.xyzw);
 }
 
+/*
+====================
+quatf_norm
+
+Normalizes quaternion to unit length.
+Guards against zero division by returning `quatf_id()`.
+
+Returns the normalized unit quaternion.
+====================
+*/
 static inline quatf quatf_norm(quatf q) {
     float l = vec4f_len(q.xyzw);
     return l > 0.0f ? (quatf){ .xyzw = vec4f_scale(q.xyzw, 1.0f / l) } : quatf_id();
@@ -423,6 +819,16 @@ static inline quatf quatf_conj(quatf q) {
     return quatf(-q.x, -q.y, -q.z, q.w);
 }
 
+/*
+====================
+quatf_mul
+
+Calculates the Hamilton product of quaternions `a` and `b`.
+Represents the composite rotation: rotation `b` followed by rotation `a`.
+
+Returns the combined orientation quaternion.
+====================
+*/
 static inline quatf quatf_mul(quatf a, quatf b) {
    return quatf(
        a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
@@ -432,12 +838,32 @@ static inline quatf quatf_mul(quatf a, quatf b) {
    );
 }
 
+/*
+====================
+quatf_mul_vec3
+
+Rotates 3D vector `v` by unit quaternion `q` using
+Rodrigues vector formula. Evaluates rotation
+without constructing intermediate 3x3 matrix.
+
+Returns the rotated 3D vector.
+====================
+*/
 static inline vec3f quatf_mul_vec3(quatf q, vec3f v) {
     vec3f uv  = vec3f_cross(q.xyz, v);
     vec3f uuv = vec3f_cross(q.xyz, uv);
     return vec3f_add(v, vec3f_scale(vec3f_add(vec3f_scale(uv, q.w), uuv), 2.0f));
 }
 
+/*
+====================
+quatf_to_mat3f
+
+Converts unit quaternion `q` into a 3x3 rotation matrix.
+
+Returns the 3x3 rotation matrix.
+====================
+*/
 static inline mat3f quatf_to_mat3f(quatf q) {
     float x2 = q.x * 2.0f, y2 = q.y * 2.0f, z2 = q.z * 2.0f;
     float xx = q.x * x2,   xy = q.x * y2,   xz = q.x * z2;
@@ -451,6 +877,16 @@ static inline mat3f quatf_to_mat3f(quatf q) {
     );
 }
 
+/*
+====================
+quatf_to_mat4f
+
+Converts unit quaternion `q` into a 4x4
+homogeneous rotation matrix.
+
+Returns the 4x4 rotation matrix.
+====================
+*/
 static inline mat4f quatf_to_mat4f(quatf q) {
     mat3f m3 = quatf_to_mat3f(q);
     return mat4f(
@@ -461,6 +897,19 @@ static inline mat4f quatf_to_mat4f(quatf q) {
     );
 }
 
+/*
+====================
+quatf_slerp
+
+Spherical linear interpolation between orientations
+`a` and `b` at factor `t` in [0, 1].
+Selects shortest rotational arc by testing dot product sign.
+Falls back to normalizeed linear interpolation for nearly
+parallel orientations (|dot| > 0.999).
+
+Returns the interpolated unit quaternion.
+====================
+*/
 static inline quatf quatf_slerp(quatf a, quatf b, float t) {
     float dot = CLAMP(quatf_dot(a, b), -1.0f, 1.0f);
     if (dot < 0.0f) {
@@ -497,6 +946,20 @@ static inline quatf quatf_slerp(quatf a, quatf b, float t) {
 /* >CAPTURE LOGIC                                                                                 */
 /* ============================================================================================== */
 
+/*
+====================
+project_to_capture
+
+Transforms a 3D world coordinate into
+2D viewport pixel coordinates `(out_x, out_y)`.
+Applies `view_proj` homogeneous transformation
+with inverted Y for top-left blitter origin.
+
+Returns:
+- `true`  if world point is in front of camera (`clip.w > 0`).
+- `false` otherwise.
+====================
+*/
 static inline bool project_to_capture(vec3f world, mat4f view_proj, int32_t view_w, int32_t view_h, int32_t *out_x, int32_t *out_y) {
     vec4f clip  = mat4f_mul_vec4f(view_proj, vec4f(world.x, world.y, world.z, 1));
     if (clip.w <= 0.0f) return false;
