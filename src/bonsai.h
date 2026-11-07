@@ -1,5 +1,14 @@
 #pragma once
 
+/*
+====================
+bonsai.h
+
+Primary umbrella header for bonsai-c.
+Exposes engine version metadata and aggregates all public core subsystems.
+====================
+*/
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -15,6 +24,13 @@ extern "C" {
 #define _BONSAI_STR_IMPL(x)  #x
 #define _BONSAI_STR(x)       _BONSAI_STR_IMPL(x)
 
+/*
+====================
+BONSAI_VERSION_STR
+
+Semantic version string of the engine in `MAJOR.MINOR.PATCH` format.
+====================
+*/
 #define BONSAI_VERSION_STR _BONSAI_STR(BONSAI_VERSION_MAJOR) "." _BONSAI_STR(BONSAI_VERSION_MINOR) "." _BONSAI_STR(BONSAI_VERSION_PATCH)
 
 /* ============================================================================================== */
