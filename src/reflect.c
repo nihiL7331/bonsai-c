@@ -1,3 +1,13 @@
+/*
+====================
+reflect.c
+
+Single-source reflection engine implementation.
+Initializes component descriptors lazily on first access
+and provides fast O(1) ID lookups and O(N) name resolution.
+====================
+*/
+
 #include "reflect.h"
 #include "core.h"
 

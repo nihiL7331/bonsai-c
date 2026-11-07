@@ -1,5 +1,18 @@
 #pragma once
 
+/*
+====================
+reflect.h
+
+Single-source reflection metadata subsystem for the ECS.
+Expands `components.def` via a hierarchical preprocessor DSL to generate:
+- C component struct definitions
+- component enumeration IDs
+- default component prototype instances
+- runtime field and component reflection descriptors
+====================
+*/
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -72,6 +85,15 @@
         COMP_collider2d,
 */
 
+/*
+====================
+comp_id_t
+
+Enumerated component identifier index.
+Used for sparse-set pool indexing and 64-bit component bitmasks.
+Terminated by `COMP_CNT` representing total registered component count.
+====================
+*/
 typedef enum comp_id {
 #define COMP(NAME) COMP_##NAME,
 #define FIELD(...)
@@ -121,6 +143,14 @@ typedef enum comp_id {
 /* >REFLECT META STRUCTS                                                                          */
 /* ============================================================================================== */
 
+/*
+====================
+reflect_type_t
+
+Primitive data type enumeration for reflection
+inspection and script marshaling.
+====================
+*/
 typedef enum reflect_type {
     TYPE_F32,
     TYPE_F64,
@@ -138,6 +168,20 @@ typedef enum reflect_type {
     TYPE_CNT,
 } reflect_type_t;
 
+/*
+====================
+field_meta_t
+
+Field reflection metadata descriptor.
+Stores:
+- field name `name`      (string identifier,     e.g. "x")
+- type name  `type_name` (C type representation, e.g. "float")
+- type tag   `type`      (primitive enum `reflect_type_t`)
+- offset     `off`       (byte offset within component struct via `offsetof`)
+- byte size  `size`      (total byte size of field via `sizeof`)
+- count      `cnt`       (element count: 1 for scalars, >1 for fixed-size arrays)
+====================
+*/
 typedef struct field_meta {
     const char    *name;
     const char    *type_name;
@@ -147,6 +191,20 @@ typedef struct field_meta {
     uint16_t       cnt;
 } field_meta_t;
 
+/*
+====================
+comp_meta_t
+
+Component reflection metadata descriptor.
+Stores:
+- component name `name`      (string identifier, e.g. "trans2d")
+- field list     `fields`    (pointer to array of `field_meta_t` descriptors)
+- default value  `def_val`   (pointer to read-only default struct instance)
+- component ID   `id`        (numeric identifier `comp_id_t`)
+- struct size    `size`      (total byte size via `sizeof`)
+- field count    `field_cnt` (number of entries in `fields` array)
+====================
+*/
 typedef struct comp_meta {
     const char          *name;
     const field_meta_t *fields;
@@ -160,6 +218,40 @@ typedef struct comp_meta {
 /* >API                                                                                           */
 /* ============================================================================================== */
 
-const comp_meta_t *reflect_comp_by_id(comp_id_t id);       /* given a components ID,   return its struct */
-const comp_meta_t *reflect_comp_by_name(const char *name); /* given a components name, return its struct */
-uint32_t           reflect_comp_cnt(void);                 /* return # of available components           */
+/*
+====================
+reflect_comp_by_id
+
+Retrieves component reflection metadata by `id` ID.
+Lazy-initializes registry on first call.
+
+Returns:
+- pointer to `comp_meta_t` descriptor if ID is valid.
+- `NULL` otherwise.
+====================
+*/
+const comp_meta_t *reflect_comp_by_id(comp_id_t id);
+
+/*
+====================
+reflect_comp_by_name
+
+Searches for component reflection metadata by `name` string.
+
+Returns:
+- pointer to `comp_meta_t` descriptor if component was found.
+- `NULL` otherwise.
+====================
+*/
+const comp_meta_t *reflect_comp_by_name(const char *name);
+
+/*
+====================
+reflect_comp_cnt
+
+Retrieves the total number of registered ECS components.
+
+Returns component count `COMP_CNT`.
+====================
+*/
+uint32_t reflect_comp_cnt(void);
