@@ -173,7 +173,7 @@ res_t spatial_grid2d_build_from_ecs(spatial_grid2d_t *grid, ecs_world_t *world, 
 
     /* if world == NULL && s_active_world == NULL return to avoid assertion */
     ecs_world_t *w = world ? world : ecs_get_world();
-    if (!w) return EINVAL;
+    if (!w) return ENOTFND;
 
     /* set active world ctx if explicit world was passed */
     ecs_world_t *prev = ecs_get_world();
@@ -450,7 +450,7 @@ res_t spatial_grid3d_build_from_ecs(spatial_grid3d_t *grid, ecs_world_t *world, 
 
     /* if world == NULL && s_active_world == NULL return to avoid assertion */
     ecs_world_t *w = world ? world : ecs_get_world();
-    if (!w) return EINVAL;
+    if (!w) return ENOTFND;
 
     /* set active world ctx if explicit world was passed */
     ecs_world_t *prev = ecs_get_world();
