@@ -1,3 +1,15 @@
+/*
+====================
+ecs.c
+
+Sparse-set ECS implementation.
+Implements generational entity recycling,
+swap-and-pop dense array maintenance,
+deferred command queueing, and
+multi-component query evaluation.
+====================
+*/
+
 #include "ecs.h"
 
 #include <stdint.h>
@@ -10,6 +22,7 @@ static ecs_world_t *s_active_world = NULL;
 /* >WORLD API                                                                                     */
 /* ============================================================================================== */
 
+/* Seeds the entity free list and marks generation 1 for all usable indices */
 static inline void _ecs_world_entity_mgr_init(entity_mgr_t *mgr) {
     mgr->gens[0] = 0UL;
     mgr->free_hd = ECS_MAX_ENTITIES;
@@ -19,6 +32,7 @@ static inline void _ecs_world_entity_mgr_init(entity_mgr_t *mgr) {
     }
 }
 
+/* Allocates contiguous dense memory per component pool and clears sparse tables to 0xFFFF */
 static inline void _ecs_world_pools_init(ecs_pool_t *pools, arena_t *perm) {
     for (size_t i = 0; i < COMP_CNT; ++i) {
         const comp_meta_t *meta = reflect_comp_by_id((comp_id_t)i);
@@ -58,6 +72,7 @@ ecs_world_t *ecs_get_world(void) {
 /* >ECS LIFECYCLE API                                                                             */
 /* ============================================================================================== */
 
+/* Pushes deferred mutation commands into scratch arena, doubling capacity on full */
 static inline void _ecs_cmd_push(ecs_cmd_t cmd) {
     ecs_world_t *world = ecs_get_world(); /* invariant held on _ecs_cmd_push call is world != NULL */
 
@@ -75,6 +90,7 @@ static inline void _ecs_cmd_push(ecs_cmd_t cmd) {
     world->cmd_buf[world->cmd_cnt++] = cmd;
 }
 
+/* O(1) swap and pop removal from dense pool, copies last element over deleted and repairs sparse tab */
 static inline void _ecs_pool_remove(ecs_world_t *world, uint16_t e_idx, comp_id_t comp) {
     ecs_pool_t *p     = &world->pools[comp];
     uint16_t    d_idx = p->sparse[e_idx];
