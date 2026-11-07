@@ -1,28 +1,38 @@
 /*
-    defines components available in code.
-    each component is written as follows:
+====================
+components.def
 
-        COMP(name)
-            FIELD(...)
-            FIELD(...)
-            ...
-        COMP_END(name)
+Single-source component registry for the ECS.
+Structured as a hierarchical preprocessor DSL.
+Repeatedly included by `reflect.h` and `reflect.c`
+to generate struct definitions, component ID enums,
+reflection metadata tables, and default instances.
 
-    there are two possible options for `FIELD`:
+Syntax:
+    COMP(name)
+        FIELD(type, name, default_value)            -- Scalar field
+        FIELD(type, name, count, default_value)     -- Fixed-size array field
+    COMP_END(name)
 
-    for scalar values:
-
-        FIELD(type, name,  default_value)   declaration
-              type  name = default_value;   matching C code
-
-    for arrays:
-
-        FIELD(type, name, count,  default_value)    declaration
-              type  name[count] = default_value;    matching C code
-
-    `type` is a primitive C type. all of the values within components MUST be stack-allocated.
+All components MUST be POD with zero heap pointers.
+====================
 */
 
+/* ============================================================================================== */
+/* >TRANSFORMS                                                                                    */
+/* ============================================================================================== */
+
+/*
+====================
+trans2d
+
+2D spatial transform component.
+Stores:
+- 2D position   `x`, `y` (in world units, default: <0.0f, 0.0f>)
+- rotation      `rot`    (in radians,     default: 0.0f)
+- uniform scale `scale`  (unitless,       default: 1.0f)
+====================
+*/
 COMP(trans2d)
     FIELD(float, x,     0.0f)
     FIELD(float, y,     0.0f)
@@ -30,6 +40,17 @@ COMP(trans2d)
     FIELD(float, scale, 1.0f)
 COMP_END(trans2d)
 
+/*
+====================
+trans3d
+
+3D spatial transform component.
+Stores:
+- 3D position    `x`,  `y`,  `z`        (in world units,        default: <0, 0, 0>)
+- orientation    `qx`, `qy`, `qz`, `qw` (normalized quaternion, default: <0, 0, 0, 0>)
+- per-axis scale `scale_x/y/z`          (unitless,              default: 1.0f)
+====================
+*/
 COMP(trans3d)
     FIELD(float, x,       0.0f)
     FIELD(float, y,       0.0f)
@@ -43,6 +64,22 @@ COMP(trans3d)
     FIELD(float, scale_z, 1.0f)
 COMP_END(trans3d)
 
+/* ============================================================================================== */
+/* >RENDERING                                                                                     */
+/* ============================================================================================== */
+
+/*
+====================
+sprite2d
+
+2D quad/sprite render descriptor.
+Stores:
+- texture ID    `id`        (atlas/sprite index,   default: 0)
+- sorting layer `layer`     (render order 0-255,   default: 0)
+- flip flags    `flip_mask` (bitmask for H/V flip, default: 0)
+- tint color    `color`     (packed 32-bit RGBA,   default: 0xFFFFFFFF)
+====================
+*/
 COMP(sprite2d)
     FIELD(uint16_t, id,        0x0000)
     FIELD(uint8_t,  layer,     0x00)
@@ -50,6 +87,22 @@ COMP(sprite2d)
     FIELD(uint32_t, color,     0xFFFFFFFF)
 COMP_END(sprite2d)
 
+/* ============================================================================================== */
+/* >COLLISION & PHYSICS                                                                           */
+/* ============================================================================================== */
+
+/*
+====================
+collider2d
+
+2D axis-aligned bounding box (AABB) collision shape.
+Stores:
+- half extents   `half_x`, `half_y` (half-dimensions from offset center, default: <0.0f, 0.0f>)
+- center offset  `off_x`,  `off_y`  (relative to entity transform,       default: <0.0f, 0.0f>)
+- layer mask     `mask`             (collision filter bitmask,           default: 0x00000001)
+- trigger sensor `trigger`          (true: detect overlap only,          default: false)
+====================
+*/
 COMP(collider2d)
     FIELD(float,    half_x,     0.0f)
     FIELD(float,    half_y,     0.0f)
@@ -60,6 +113,18 @@ COMP(collider2d)
     FIELD(uint8_t,  _pad,    3, {0})
 COMP_END(collider2d)
 
+/*
+====================
+collider3d
+
+3D axis-aligned bounding box (AABB) collision shape.
+Stores:
+- half extents  `half_x/y/z` (half-dimensions from offset center, default: <0.0f, 0.0f, 0.0f>)
+- center offset  `off_x/y/z` (relative to entity transform,       default: <0.0f, 0.0f, 0.0f>)
+- layer mask     `mask`      (collision filter bitmask,           default: 0x00000001)
+- trigger sensor `trigger`   (true: detect overlap only,          default: false)
+====================
+*/
 COMP(collider3d)
     FIELD(float,    half_x,     0.0f)
     FIELD(float,    half_y,     0.0f)
@@ -72,6 +137,18 @@ COMP(collider3d)
     FIELD(uint8_t, _pad,     3, {0})
 COMP_END(collider3d)
 
+/*
+====================
+rb2d
+
+2D rigid body physics dynamics state.
+Stores:
+- linear velocity  `vel_x`, `vel_y` (units/second,                      default: <0.0f, 0.0f>)
+- angular velocity `angular_vel`    (radians/second,                    default: 0.0f)
+- inverse mass     `inv_mass`       (1/kg, 0.0f = static/infinite mass, default: 1.0f)
+- linear damping   `drag`           (velocity decay coefficient,        default: 0.0f)
+====================
+*/
 COMP(rb2d)
     FIELD(float, vel_x,       0.0f)
     FIELD(float, vel_y,       0.0f)
@@ -80,6 +157,19 @@ COMP(rb2d)
     FIELD(float, drag,        0.0f)
 COMP_END(rb2d)
 
+/*
+====================
+rb3d
+
+3D rigid body physics dynamic state.
+Stores:
+- linear velocity  `vel_x/y/z`     (units/second,                      default: <0.0f, 0.0f, 0.0f>)
+- angular velocity `ang_vel_x/y/z` (radians/second,                    default: <0.0f, 0.0f, 0.0f>)
+- inverse mass     `inv_mass`      (1/kg, 0.0f = static/infinite mass, default: 1.0f)
+- linear damping   `drag`          (velocity decay coefficient,        default: 0.0f)
+- angular damping  `ang_drag`      (rotational decay coefficient,      default: 0.0f)
+====================
+*/
 COMP(rb3d)
     FIELD(float, vel_x,     0.0f)
     FIELD(float, vel_y,     0.0f)
@@ -92,6 +182,19 @@ COMP(rb3d)
     FIELD(float, ang_drag,  0.0f)
 COMP_END(rb3d)
 
+/* ============================================================================================== */
+/* >METADATA                                                                                      */
+/* ============================================================================================== */
+
+/*
+====================
+tag
+
+Entity identification and debugging tag.
+Stores:
+- name `name` (fixed-size 32-byte null-terminated string, default: "")
+====================
+*/
 COMP(tag)
     FIELD(char, name, 32, "")
 COMP_END(tag)
