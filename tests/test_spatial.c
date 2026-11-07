@@ -403,6 +403,21 @@ int main(void) {
         TEST_ASSERT(spatial_query_aabb(&g3, aabb3f(vec3f(0, 0, 0), vec3f(5, 5, 5)), 0, out, 4, &s_scratch_arena) == 1, "generic aabb 3d failed");
     } TEST_CASE_END();
 
+    TEST_CASE("spatial_ecs_notfnd", "returns ENOTFND when s_active_world==NULL") {
+        spatial_grid2d_t g2d;
+        spatial_grid3d_t g3d;
+        spatial_grid2d_init(&g2d, 32.0f, 64);
+        spatial_grid3d_init(&g3d, 32.0f, 64);
+
+        ecs_world_t *active = ecs_get_world();
+        ecs_set_world(NULL);
+
+        TEST_ASSERT(spatial_grid2d_build_from_ecs(&g2d, NULL, &s_scratch_arena) == ENOTFND, "exp ENOTFND for 2D with NULL world");
+        TEST_ASSERT(spatial_grid3d_build_from_ecs(&g3d, NULL, &s_scratch_arena) == ENOTFND, "exp ENOTFND for 3D with NULL world");
+
+        ecs_set_world(active);
+    } TEST_CASE_END();
+
     free(perm_buf);
     free(scratch_buf);
     TEST_END();
