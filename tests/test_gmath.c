@@ -305,5 +305,15 @@ int main(void) {
                     "exp [0, 5 -> 10, 10], got [%f, %f -> %f, %f]", bf.min_x, bf.min_y, bf.max_x, bf.max_y);
     } TEST_CASE_END();
 
+    TEST_CASE("aabb_expand", "expands bounds along each axis") {
+        aabb2i b2 = aabb_expand(aabb2i(vec2i(5, 5), vec2i(10, 10)), vec2i(2, 3));
+        TEST_ASSERT(b2.min_x == 3 && b2.min_y == 2 && b2.max_x == 12 && b2.max_y == 13,
+                    "exp [3, 2 -> 12, 13], got [%d, %d -> %d, %d]", b2.min_x, b2.min_y, b2.max_x, b2.max_y);
+
+        aabb2f bf = aabb_expand(aabb2f(vec2f(2.0f, 4.0f), vec2f(8.0f, 10.0f)), vec2f(1.5f, 0.5f));
+        TEST_ASSERT(feq(bf.min_x, 0.5f) && feq(bf.min_y, 3.5f) && feq(bf.max_x, 9.5f) && feq(bf.max_y, 10.5f),
+                    "exp [0.5, 3.5 -> 9.5, 10.5], got [%f, %f -> %f, %f]", bf.min_x, bf.min_y, bf.max_x, bf.max_y);
+    } TEST_CASE_END();
+
     TEST_END();
 }
