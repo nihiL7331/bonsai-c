@@ -61,7 +61,7 @@ and provides fast O(1) ID lookups and O(N) name resolution.
 #define COMP(NAME)                      const NAME NAME##_def = {
 #define _FIELD_DEF_3(T, NAME,      DEF) .NAME = (DEF),
 #define _FIELD_DEF_4(T, NAME, CNT, DEF) .NAME = DEF,
-#define FIELD(...)                      _FIELD_SELECT(__VA_ARGS__, _FIELD_DEF_4, _FIELD_DEF_3, 0)(__VA_ARGS__)
+#define FIELD(...)                      VA_JOIN(_FIELD_DEF_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 #define COMP_END(NAME)                  };
 
 #include "components.def"
@@ -113,7 +113,7 @@ and provides fast O(1) ID lookups and O(N) name resolution.
         static const field_meta_t fields[] = {
 #define _FIELD_META_3(T, NAME,      DEF) { #NAME, #T, _RTYPE_##T, (uint16_t)offsetof(_curr_comp_t, NAME), (uint16_t)sizeof(((_curr_comp_t *)0)->NAME), 1     },
 #define _FIELD_META_4(T, NAME, CNT, DEF) { #NAME, #T, _RTYPE_##T, (uint16_t)offsetof(_curr_comp_t, NAME), (uint16_t)sizeof(((_curr_comp_t *)0)->NAME), (CNT) },
-#define FIELD(...)                       _FIELD_SELECT(__VA_ARGS__, _FIELD_META_4, _FIELD_META_3, 0)(__VA_ARGS__)
+#define FIELD(...)                       VA_JOIN(_FIELD_META_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 #define COMP_END(NAME)                                                                             \
     };                                                                                             \
         *out_cnt = (uint16_t)(sizeof(fields) / sizeof(*fields));                                   \

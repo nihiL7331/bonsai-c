@@ -13,6 +13,8 @@ Expands `components.def` via a hierarchical preprocessor DSL to generate:
 ====================
 */
 
+#include "core.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
