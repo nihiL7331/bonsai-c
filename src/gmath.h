@@ -748,6 +748,12 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
             vec_clamp(b.min, bounds.min, bounds.max),                                              \
             vec_clamp(b.max, bounds.min, bounds.max)                                               \
         );                                                                                         \
+    }                                                                                              \
+    static inline NAME NAME##_expand(NAME b, VEC_T v) {                                            \
+        return NAME(                                                                               \
+            vec_sub(b.min, v),                                                                     \
+            vec_add(b.max, v)                                                                      \
+        );                                                                                         \
     }
 
 #define DEF_AABB_FLOAT_CENTER(NAME, VEC_T)                                                         \
@@ -875,6 +881,18 @@ Returns the constructed AABB.
 ====================
 */
 #define aabb_clamp(b, bounds) _Generic((b), aabb2f: aabb2f_clamp, aabb2i: aabb2i_clamp, aabb3f: aabb3f_clamp, aabb3i: aabb3i_clamp)((b), (bounds))
+
+/*
+====================
+aabb_expand
+
+Constructs an AABB expanding `b` by `v` in each direction.
+
+Returns the constructed AABB in form
+[(b.min.x - v.x, b.min.y - v.y), (b.max.x + v.x, b.max_y + v.y)].
+====================
+*/
+#define aabb_expand(b, v) _Generic((b), aabb2f: aabb2f_expand, aabb2i: aabb2i_expand, aabb3f: aabb3f_expand, aabb3i: aabb3i_expand)((b), (v))
 
 /* ============================================================================================== */
 /* >QUATERNION LOGIC                                                                              */
