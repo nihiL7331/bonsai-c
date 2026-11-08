@@ -197,31 +197,126 @@ typedef union quatf {
 /* >CONSTRUCTORS                                                                                  */
 /* ============================================================================================== */
 
-#define _VEC2_TO_VEC2F(x) _Generic((x), vec2f: (x), vec2i: ((vec2f){ .v = { (float)(x).v[0],   (float)(x).v[1]   } }))
-#define _VEC2_TO_VEC2I(x) _Generic((x), vec2i: (x))
-#define _VEC3_TO_VEC3F(x) _Generic((x), vec3f: (x), vec3i: ((vec3f){ .v = { (float)(x).v[0],   (float)(x).v[1],   (float)(x).v[2]   } }))
-#define _VEC3_TO_VEC3I(x) _Generic((x), vec3i: (x))
-#define _VEC4_TO_VEC4F(x) _Generic((x), vec4f: (x), vec4i: ((vec4f){ .v = { (float)(x).v[0],   (float)(x).v[1],   (float)(x).v[2],   (float)(x).v[3]   } }))
-#define _VEC4_TO_VEC4I(x) _Generic((x), vec4i: (x))
+/* vectors */
+#define DEF_VEC_CAST(DIM)                                                                          \
+    static inline vec##DIM##f vec##DIM##f_from_i(vec##DIM##i v) {                                  \
+        vec##DIM##f r = {0};                                                                       \
+        for (size_t i = 0; i < (DIM); ++i) r.v[i] = (float)v.v[i];                                 \
+        return r;                                                                                  \
+    }                                                                                              \
+    static inline vec##DIM##f vec##DIM##f_from_f(vec##DIM##f v) { return v; }                      \
+    static inline vec##DIM##i vec##DIM##i_from_f(vec##DIM##f v) {                                  \
+        vec##DIM##i r = {0};                                                                       \
+        for (size_t i = 0; i < (DIM); ++i) r.v[i] = (int32_t)v.v[i];                               \
+        return r;                                                                                  \
+    }                                                                                              \
+    static inline vec##DIM##i vec##DIM##i_from_i(vec##DIM##i v) { return v; }                      \
 
-#define vec2f(x, y) ((vec2f){ .v = { (float)(x),   (float)(y)   }})
-#define vec2i(x, y) ((vec2i){ .v = { (int32_t)(x), (int32_t)(y) }})
+DEF_VEC_CAST(2)
+DEF_VEC_CAST(3)
+DEF_VEC_CAST(4)
 
-#define vec3f(x, y, z) ((vec3f){ .v = { (float)(x),   (float)(y),   (float)(z)   }})
-#define vec3i(x, y, z) ((vec3i){ .v = { (int32_t)(x), (int32_t)(y), (int32_t)(z) }})
+#define _VEC_CAST(DIM, S1, S2, v) _Generic((v),                                                    \
+    vec##DIM##S2: vec##DIM##S1##_from_##S2,                                                        \
+    vec##DIM##S1: vec##DIM##S1##_from_##S1)                                                        \
+    (v)
 
-#define vec4f(x, y, z, w) ((vec4f){ .v = { (float)(x),   (float)(y),   (float)(z),   (float)(w)   }})
-#define vec4i(x, y, z, w) ((vec4i){ .v = { (int32_t)(x), (int32_t)(y), (int32_t)(z), (int32_t)(w) }})
+#define _vec2f_raw(x, y)       ((vec2f){ .v = { (float)(x),   (float)(y)                               }})
+#define _vec2i_raw(x, y)       ((vec2i){ .v = { (int32_t)(x), (int32_t)(y)                             }})
+#define _vec3f_raw(x, y, z)    ((vec3f){ .v = { (float)(x),   (float)(y),   (float)(z)                 }})
+#define _vec3i_raw(x, y, z)    ((vec3i){ .v = { (int32_t)(x), (int32_t)(y), (int32_t)(z)               }})
+#define _vec4f_raw(x, y, z, w) ((vec4f){ .v = { (float)(x),   (float)(y),   (float)(z),   (float)(w)   }})
+#define _vec4i_raw(x, y, z, w) ((vec4i){ .v = { (int32_t)(x), (int32_t)(y), (int32_t)(z), (int32_t)(w) }})
 
-#define mat3f(c0, c1, c2)     ((mat3f){ .col = { _VEC3_TO_VEC3F(c0), _VEC3_TO_VEC3F(c1), _VEC3_TO_VEC3F(c2) }})
-#define mat4f(c0, c1, c2, c3) ((mat4f){ .col = { _VEC4_TO_VEC4F(c0), _VEC4_TO_VEC4F(c1), _VEC4_TO_VEC4F(c2), _VEC4_TO_VEC4F(c3) }})
+#define vec2f_1(v)    _VEC_CAST(2, f, i, v)
+#define vec2f_2(x, y) _vec2f_raw(x, y)
+#define vec2f(...)    VA_JOIN(vec2f_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 
-#define aabb2f(vmin, vmax) ((aabb2f){ .min = _VEC2_TO_VEC2F(vmin), .max = _VEC2_TO_VEC2F(vmax) })
-#define aabb2i(vmin, vmax) ((aabb2i){ .min = _VEC2_TO_VEC2I(vmin), .max = _VEC2_TO_VEC2I(vmax) })
+#define vec2i_1(v)    _VEC_CAST(2, i, f, v)
+#define vec2i_2(x, y) _vec2i_raw(x, y)
+#define vec2i(...)    VA_JOIN(vec2i_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 
-#define aabb3f(vmin, vmax) ((aabb3f){ .min = _VEC3_TO_VEC3F(vmin), .max = _VEC3_TO_VEC3F(vmax) })
-#define aabb3i(vmin, vmax) ((aabb3i){ .min = _VEC3_TO_VEC3I(vmin), .max = _VEC3_TO_VEC3I(vmax) })
+#define vec3f_1(v)       _VEC_CAST(3, f, i, v)
+#define vec3f_3(x, y, z) _vec3f_raw(x, y, z)
+#define vec3f(...)       VA_JOIN(vec3f_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 
+#define vec3i_1(v)       _VEC_CAST(3, i, f, v)
+#define vec3i_3(x, y, z) _vec3i_raw(x, y, z)
+#define vec3i(...)       VA_JOIN(vec3i_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define vec4f_1(v)          _VEC_CAST(4, f, i, v)
+#define vec4f_4(x, y, z, w) _vec4f_raw(x, y, z, w)
+#define vec4f(...)          VA_JOIN(vec4f_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define vec4i_1(v)          _VEC_CAST(4, i, f, v)
+#define vec4i_4(x, y, z, w) _vec4i_raw(x, y, z, w)
+#define vec4i(...)          VA_JOIN(vec4i_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define vec2f_splat(s) ((vec2f){ .v = { (float)(s),   (float)(s)   }})
+#define vec2i_splat(s) ((vec2i){ .v = { (int32_t)(s), (int32_t)(s) }})
+
+#define vec3f_splat(s) ((vec3f){ .v = { (float)s,   (float)s,   (float)s   }})
+#define vec3i_splat(s) ((vec3i){ .v = { (int32_t)s, (int32_t)s, (int32_t)s }})
+
+#define vec4f_splat(s) ((vec4f){ .v = { (float)s,   (float)s,   (float)s,   (float)s   }})
+#define vec4i_splat(s) ((vec4i){ .v = { (int32_t)s, (int32_t)s, (int32_t)s, (int32_t)s }})
+
+/* matrices */
+#define mat3f(c0, c1, c2)     ((mat3f){ .col = { vec3f(c0), vec3f(c1), vec3f(c2)            }})
+#define mat4f(c0, c1, c2, c3) ((mat4f){ .col = { vec4f(c0), vec4f(c1), vec4f(c2), vec4f(c3) }})
+
+/* aabbs */
+#define DEF_AABB_CAST(DIM)                                                                         \
+    static inline aabb##DIM##f aabb##DIM##f_from_i(aabb##DIM##i b) {                               \
+        return (aabb##DIM##f){ .min = vec##DIM##f(b.min), .max = vec##DIM##f(b.max) };             \
+    }                                                                                              \
+    static inline aabb##DIM##f aabb##DIM##f_from_f(aabb##DIM##f b) { return b; }                   \
+    static inline aabb##DIM##i aabb##DIM##i_from_f(aabb##DIM##f b) {                               \
+        return (aabb##DIM##i){ .min = vec##DIM##i(b.min), .max = vec##DIM##i(b.max) };             \
+    }                                                                                              \
+    static inline aabb##DIM##i aabb##DIM##i_from_i(aabb##DIM##i b) { return b; }
+
+DEF_AABB_CAST(2)
+DEF_AABB_CAST(3)
+
+#define _AABB_CAST(DIM, S1, S2, b) _Generic((b),                                                   \
+    aabb##DIM##S2: aabb##DIM##S1##_from_##S2,                                                      \
+    aabb##DIM##S1: aabb##DIM##S1##_from_##S1                                                       \
+    )(b)
+
+#define _aabb2f_raw2(vmin, vmax) ((aabb2f){ .min = vec2f(vmin), .max = vec2f(vmax) })
+#define _aabb2i_raw2(vmin, vmax) ((aabb2i){ .min = vec2i(vmin), .max = vec2i(vmax) })
+
+#define _aabb3f_raw2(vmin, vmax) ((aabb3f){ .min = vec3f(vmin), .max = vec3f(vmax) })
+#define _aabb3i_raw2(vmin, vmax) ((aabb3i){ .min = vec3i(vmin), .max = vec3i(vmax) })
+
+#define _aabb2f_raw4(x0, y0, x1, y1) ((aabb2f){ .min = vec2f((x0), (y0)), .max = vec2f((x1), (y1)) })
+#define _aabb2i_raw4(x0, y0, x1, y1) ((aabb2i){ .min = vec2i((x0), (y0)), .max = vec2i((x1), (y1)) })
+
+#define _aabb3f_raw4(x0, y0, z0, x1, y1, z1) ((aabb3f){ .min = vec3f((x0), (y0), (z0)), .max = vec3f((x1), (y1), (z1)) })
+#define _aabb3i_raw4(x0, y0, z0, x1, y1, z1) ((aabb3i){ .min = vec3i((x0), (y0), (z0)), .max = vec3i((x1), (y1), (z1)) })
+
+#define aabb2f_1(b)              _AABB_CAST(2, f, i, b)
+#define aabb2f_2(vmin, vmax)     _aabb2f_raw2(vmin, vmax)
+#define aabb2f_4(x0, y0, x1, y1) _aabb2f_raw4(x0, y0, x1, y1)
+#define aabb2f(...)              VA_JOIN(aabb2f_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define aabb2i_1(b)              _AABB_CAST(2, i, f, b)
+#define aabb2i_2(vmin, vmax)     _aabb2i_raw2(vmin, vmax)
+#define aabb2i_4(x0, y0, x1, y1) _aabb2i_raw4(x0, y0, x1, y1)
+#define aabb2i(...)              VA_JOIN(aabb2i_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define aabb3f_1(b)                      _AABB_CAST(3, f, i, b)
+#define aabb3f_2(vmin, vmax)             _aabb3f_raw2(vmin, vmax)
+#define aabb3f_6(x0, y0, z0, x1, y1, z1) _aabb3f_raw4(x0, y0, z0, x1, y1, z1)
+#define aabb3f(...)                      VA_JOIN(aabb3f_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define aabb3i_1(b)                      _AABB_CAST(3, i, f, b)
+#define aabb3i_2(vmin, vmax)             _aabb3i_raw2(vmin, vmax)
+#define aabb3i_6(x0, y0, z0, x1, y1, z1) _aabb3i_raw4(x0, y0, z0, x1, y1, z1)
+#define aabb3i(...)                      VA_JOIN(aabb3i_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+/* quaternions */
 #define quatf(x, y, z, w) ((quatf){{ (float)(x), (float)(y), (float)(z), (float)(w) }})
 
 /* ============================================================================================== */
