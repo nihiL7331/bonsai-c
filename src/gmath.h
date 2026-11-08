@@ -300,11 +300,11 @@ DEF_VEC_FLOAT_OPS(vec4f)
 
 #define DEF_VEC_CROSS3(NAME)                                                                       \
     static inline NAME NAME##_cross(NAME a, NAME b) {                                              \
-        return (NAME){                                                                             \
-            .x = a.y * b.z - a.z * b.y,                                                            \
-            .y = a.z * b.x - a.x * b.z,                                                            \
-            .z = a.x * b.y - a.y * b.x,                                                            \
-        };                                                                                         \
+        return NAME(                                                                               \
+            a.y * b.z - a.z * b.y,                                                                 \
+            a.z * b.x - a.x * b.z,                                                                 \
+            a.x * b.y - a.y * b.x                                                                  \
+        );                                                                                         \
     }
 
 DEF_VEC_CROSS2(vec2f, float)
@@ -315,10 +315,10 @@ DEF_VEC_CROSS3(vec3i)
 
 #define _VEC_GEN_BINARY(FN, a, b) _Generic((a), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN, vec4f: vec4f_##FN, vec4i: vec4i_##FN)((a), (b))
 
-#define vec_add(a, b)   _VEC_GEN_BINARY(add, a, b)
-#define vec_sub(a, b)   _VEC_GEN_BINARY(sub, a, b)
-#define vec_mul(a, b)   _VEC_GEN_BINARY(mul, a, b)
-#define vec_div(a, b)   _VEC_GEN_BINARY(div, a, b)
+#define vec_add(a, b)   _VEC_GEN_BINARY(add,   a, b)
+#define vec_sub(a, b)   _VEC_GEN_BINARY(sub,   a, b)
+#define vec_mul(a, b)   _VEC_GEN_BINARY(mul,   a, b)
+#define vec_div(a, b)   _VEC_GEN_BINARY(div,   a, b)
 #define vec_scale(a, s) _VEC_GEN_BINARY(scale, a, s)
 #define vec_min(a, b)   _VEC_GEN_BINARY(min,   a, b)
 #define vec_max(a, b)   _VEC_GEN_BINARY(max,   a, b)
@@ -337,8 +337,8 @@ Returns the inner product scalar.
 #define _VEC_GEN_UNARY(FN, v) _Generic((v), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN, vec4f: vec4f_##FN, vec4i: vec4i_##FN)((v))
 
 #define vec_len_sq(v) _VEC_GEN_UNARY(len_sq, v)
-#define vec_len(v)    _VEC_GEN_UNARY(len, v)
-#define vec_abs(v)    _VEC_GEN_UNARY(abs, v)
+#define vec_len(v)    _VEC_GEN_UNARY(len,    v)
+#define vec_abs(v)    _VEC_GEN_UNARY(abs,    v)
 
 #define _VEC_GEN_UNARY_FLOAT(FN, v) _Generic((v), vec2f: vec2f_##FN, vec3f: vec3f_##FN, vec4f: vec4f_##FN)((v))
 
@@ -620,10 +620,10 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
 
 #define DEF_AABB_OPS(NAME, VEC_T, T, DIM)                                                          \
     static inline NAME NAME##_pos_size(VEC_T pos, VEC_T size) {                                    \
-        return (NAME){ .min = pos, .max = VEC_T##_add(pos, size) };                                \
+        return NAME(pos, VEC_T##_add(pos, size));                                                  \
     }                                                                                              \
     static inline NAME NAME##_center_half(VEC_T center, VEC_T half) {                              \
-        return (NAME){ .min = VEC_T##_sub(center, half), .max = VEC_T##_add(center, half) };       \
+        return NAME(VEC_T##_sub(center, half), VEC_T##_add(center, half));                         \
     }                                                                                              \
     static inline VEC_T NAME##_size(NAME b) {                                                      \
         return VEC_T##_sub(b.max, b.min);                                                          \
@@ -639,18 +639,13 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
         return true;                                                                               \
     }                                                                                              \
     static inline NAME NAME##_merge(NAME a, NAME b) {                                              \
-        NAME r = (NAME){0};                                                                        \
-        for (size_t i = 0; i < (DIM); ++i) {                                                       \
-            r.min.v[i] = MIN(a.min.v[i], b.min.v[i]);                                              \
-            r.max.v[i] = MAX(a.max.v[i], b.max.v[i]);                                              \
-        }                                                                                          \
-        return r;                                                                                  \
+        return NAME(                                                                               \
+            vec_min(a.min, b.min),                                                                 \
+            vec_max(a.max, b.max)                                                                  \
+        );                                                                                         \
     }                                                                                              \
     static inline bool NAME##_inter_radius(NAME b, VEC_T center, T radius) {                       \
-        VEC_T closest = (VEC_T){0};                                                                \
-        for (size_t i = 0; i < (DIM); ++i)                                                         \
-            closest.v[i] = CLAMP(center.v[i], b.min.v[i], b.max.v[i]);                             \
-        VEC_T diff = vec_sub(center, closest);                                                     \
+        VEC_T diff = vec_sub(center, vec_clamp(center, b.min, b.max));                             \
         return vec_dot(diff, diff) <= (radius * radius);                                           \
     }                                                                                              \
     static inline NAME NAME##_clamp(NAME b, NAME bounds) {                                         \
