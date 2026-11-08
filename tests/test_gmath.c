@@ -287,5 +287,23 @@ int main(void) {
         TEST_ASSERT(!aabb_inter_radius(b3, vec3f(22, 23, 26), 6.99f), "3d corner separation exp false");
     } TEST_CASE_END();
 
+    TEST_CASE("vec_clamp", "clamps vector components within range") {
+        vec2f v2 = vec_clamp(vec2f(-5.0f, 40.0f), vec2f(0.0f, 0.0f), vec2f(10.0f, 10.0f));
+        TEST_ASSERT(feq(v2.x, 0.0f) && feq(v2.y, 10.0f), "exp (0.0, 10.0), got (%f, %f)", v2.x, v2.y);
+
+        vec3i v3 = vec_clamp(vec3i(-10, 5, 25), vec3i(0, 0, 0), vec3i(10, 10, 10));
+        TEST_ASSERT(v3.x == 0 && v3.y == 5 && v3.z == 10, "exp (0, 5, 10), got (%d, %d, %d)", v3.x, v3.y, v3.z);
+    } TEST_CASE_END();
+
+    TEST_CASE("aabb_clamp", "clamps bounding boxes within bounds") {
+        aabb2i b2 = aabb_clamp(aabb2i(vec2i(-5, 15), vec2i(50, 80)), aabb2i(vec2i(0, 0), vec2i(32, 32)));
+        TEST_ASSERT(b2.min_x == 0 && b2.min_y == 15 && b2.max_x == 32 && b2.max_y == 32,
+                    "exp [0, 15 -> 32, 32], got [%d, %d -> %d, %d]", b2.min_x, b2.min_y, b2.max_x, b2.max_y);
+
+        aabb2f bf = aabb_clamp(aabb2f(vec2f(-2.0f, 5.0f), vec2f(20.0f, 40.0f)), aabb2f(vec2f(0.0f, 0.0f), vec2f(10.0f, 10.0f)));
+        TEST_ASSERT(feq(bf.min_x, 0.0f) && feq(bf.min_y, 5.0f) && feq(bf.max_x, 10.0f) && feq(bf.max_y, 10.0f),
+                    "exp [0, 5 -> 10, 10], got [%f, %f -> %f, %f]", bf.min_x, bf.min_y, bf.max_x, bf.max_y);
+    } TEST_CASE_END();
+
     TEST_END();
 }
