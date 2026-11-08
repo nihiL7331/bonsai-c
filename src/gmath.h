@@ -240,6 +240,21 @@ typedef union quatf {
     _DEF_VEC_BINOP(NAME, DIM, sub, -)                                                              \
     _DEF_VEC_BINOP(NAME, DIM, mul, *)                                                              \
     _DEF_VEC_BINOP(NAME, DIM, div, /)                                                              \
+    static inline NAME NAME##_min(NAME a, NAME b) {                                                \
+        NAME r = {0};                                                                              \
+        for (size_t i = 0; i < (DIM); ++i) r.v[i] = MIN(a.v[i], b.v[i]);                           \
+        return r;                                                                                  \
+    }                                                                                              \
+    static inline NAME NAME##_max(NAME a, NAME b) {                                                \
+        NAME r = {0};                                                                              \
+        for (size_t i = 0; i < (DIM); ++i) r.v[i] = MAX(a.v[i], b.v[i]);                           \
+        return r;                                                                                  \
+    }                                                                                              \
+    static inline NAME NAME##_clamp(NAME v, NAME lo, NAME hi) {                                    \
+        NAME r = {0};                                                                              \
+        for (size_t i = 0; i < (DIM); ++i) r.v[i] = CLAMP(v.v[i], lo.v[i], hi.v[i]);               \
+        return r;                                                                                  \
+    }                                                                                              \
     static inline NAME NAME##_abs(NAME v) {                                                        \
         NAME r = {0};                                                                              \
         for (size_t i = 0; i < (DIM); ++i) r.v[i] = ABS(v.v[i]);                                   \
@@ -305,6 +320,8 @@ DEF_VEC_CROSS3(vec3i)
 #define vec_mul(a, b)   _VEC_GEN_BINARY(mul, a, b)
 #define vec_div(a, b)   _VEC_GEN_BINARY(div, a, b)
 #define vec_scale(a, s) _VEC_GEN_BINARY(scale, a, s)
+#define vec_min(a, b)   _VEC_GEN_BINARY(min,   a, b)
+#define vec_max(a, b)   _VEC_GEN_BINARY(max,   a, b)
 
 /*
 ====================
@@ -338,6 +355,10 @@ Returns the normalized unit vector.
 #define vec_norm(v) _VEC_GEN_UNARY_FLOAT(norm, v)
 
 #define _VEC_GEN_BINARY_FLOAT(FN, a, b) _Generic((a), vec2f: vec2f_##FN, vec3f: vec3f_##FN, vec4f: vec4f_##FN)((a), (b))
+
+#define _VEC_GEN_TERNARY(FN, v, a, b) _Generic((v), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN, vec4f: vec4f_##FN, vec4i: vec4i_##FN)((v), (a), (b))
+
+#define vec_clamp(v, lo, hi) _VEC_GEN_TERNARY(clamp, v, lo, hi)
 
 /*
 ====================
@@ -631,6 +652,12 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
             closest.v[i] = CLAMP(center.v[i], b.min.v[i], b.max.v[i]);                             \
         VEC_T diff = vec_sub(center, closest);                                                     \
         return vec_dot(diff, diff) <= (radius * radius);                                           \
+    }                                                                                              \
+    static inline NAME NAME##_clamp(NAME b, NAME bounds) {                                         \
+        return NAME(                                                                               \
+            vec_clamp(b.min, bounds.min, bounds.max),                                              \
+            vec_clamp(b.max, bounds.min, bounds.max)                                               \
+        );                                                                                         \
     }
 
 #define DEF_AABB_FLOAT_CENTER(NAME, VEC_T)                                                         \
@@ -747,6 +774,17 @@ Returns the constructed AABB.
 ====================
 */
 #define aabb_center_half(center, half) _Generic((center), vec2f: aabb2f_center_half, vec2i: aabb2i_center_half, vec3f: aabb3f_center_half, vec3i: aabb3i_center_half)((center), (half))
+
+/*
+====================
+aabb_clamp
+
+Constructs an AABB by clamping `b` within `bounds`.
+
+Returns the constructed AABB.
+====================
+*/
+#define aabb_clamp(b, bounds) _Generic((b), aabb2f: aabb2f_clamp, aabb2i: aabb2i_clamp, aabb3f: aabb3f_clamp, aabb3i: aabb3i_clamp)((b), (bounds))
 
 /* ============================================================================================== */
 /* >QUATERNION LOGIC                                                                              */
