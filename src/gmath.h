@@ -410,13 +410,29 @@ DEF_VEC_CROSS3(vec3i)
 
 #define _VEC_GEN_BINARY(FN, a, b) _Generic((a), vec2f: vec2f_##FN, vec2i: vec2i_##FN, vec3f: vec3f_##FN, vec3i: vec3i_##FN, vec4f: vec4f_##FN, vec4i: vec4i_##FN)((a), (b))
 
-#define vec_add(a, b)   _VEC_GEN_BINARY(add,   a, b)
+#define _VEC_VAR2(FN, a, b)       _VEC_GEN_BINARY(FN, a, b)
+#define _VEC_VAR3(FN, a, b, c)    _VEC_VAR2(FN, _VEC_VAR2(FN, a, b), c)
+#define _VEC_VAR4(FN, a, b, c, d) _VEC_VAR2(FN, _VEC_VAR3(FN, a, b, c), d)
+
+#define _vec_add2(a, b)       _VEC_VAR2(add, a, b)
+#define _vec_add3(a, b, c)    _VEC_VAR3(add, a, b, c)
+#define _vec_add4(a, b, c, d) _VEC_VAR4(add, a, b, c, d)
+#define vec_add(...)          VA_JOIN(_vec_add, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define _vec_min2(a, b)       _VEC_VAR2(min, a, b)
+#define _vec_min3(a, b, c)    _VEC_VAR3(min, a, b, c)
+#define _vec_min4(a, b, c, d) _VEC_VAR4(min, a, b, c, d)
+#define vec_min(...)          VA_JOIN(_vec_min, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define _vec_max2(a, b)       _VEC_VAR2(max, a, b)
+#define _vec_max3(a, b, c)    _VEC_VAR3(max, a, b, c)
+#define _vec_max4(a, b, c, d) _VEC_VAR4(max, a, b, c, d)
+#define vec_max(...)          VA_JOIN(_vec_max, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
 #define vec_sub(a, b)   _VEC_GEN_BINARY(sub,   a, b)
 #define vec_mul(a, b)   _VEC_GEN_BINARY(mul,   a, b)
 #define vec_div(a, b)   _VEC_GEN_BINARY(div,   a, b)
 #define vec_scale(a, s) _VEC_GEN_BINARY(scale, a, s)
-#define vec_min(a, b)   _VEC_GEN_BINARY(min,   a, b)
-#define vec_max(a, b)   _VEC_GEN_BINARY(max,   a, b)
 
 /*
 ====================
