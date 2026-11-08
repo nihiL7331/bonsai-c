@@ -25,10 +25,19 @@ debug-only assertions, fatal panics, and the global `res_t` status code enum.
 #endif // !defined(__GNUC__) && !defined(__clang__)
 
 /* ============================================================================================== */
+/* >VARIADIC MACRO DISPATCH                                                                       */
+/* ============================================================================================== */
+
+#define _VA_GLUE(a, b) a##b
+#define VA_JOIN(a, b) _VA_GLUE(a, b)
+#define _VA_NARGS_IMPL(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, N, ...) N
+#define VA_NARGS(...) _VA_NARGS_IMPL(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+
+/* ============================================================================================== */
 /* >CACHE LINE HELPERS                                                                            */
 /* ============================================================================================== */
 
-#define CACHE_LINE_SZ       64
+#define CACHE_LINE_SZ 64
 
 /*
 ====================
@@ -108,7 +117,6 @@ nearest 64-byte cache-line multiple (`CACHE_LINE_SZ`).
 #define _MIN2(a, b)       (((a) < (b)) ? (a) : (b))
 #define _MIN3(a, b, c)    _MIN2(_MIN2(a, b), c)
 #define _MIN4(a, b, c, d) _MIN2(_MIN3(a, b, c), d)
-#define _MIN_SELECT(_1, _2, _3, _4, NAME, ...) NAME
 
 /*
 ====================
@@ -118,12 +126,11 @@ Variadic minimum macro supporting 2 to 4 arguments of comparable types.
 Evaluated via macro overload selection (`_MIN_SELECT`).
 ====================
 */
-#define MIN(...) _MIN_SELECT(__VA_ARGS__, _MIN4, _MIN3, _MIN2, 0)(__VA_ARGS__)
+#define MIN(...) VA_JOIN(_MIN, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 
 #define _MAX2(a, b)       (((a) > (b)) ? (a) : (b))
 #define _MAX3(a, b, c)    _MAX2(_MAX2(a, b), c)
 #define _MAX4(a, b, c, d) _MAX2(_MAX3(a, b, c), d)
-#define _MAX_SELECT(_1, _2, _3, _4, NAME, ...) NAME
 
 /*
 ====================
@@ -133,7 +140,7 @@ Variadic maximum macro supporting 2 to 4 arguments of comparable types.
 Evaluated via macro overload selection (`_MAX_SELECT`).
 ====================
 */
-#define MAX(...) _MAX_SELECT(__VA_ARGS__, _MAX4, _MAX3, _MAX2, 0)(__VA_ARGS__)
+#define MAX(...) VA_JOIN(_MAX, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 
 /*
 ====================

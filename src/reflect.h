@@ -17,8 +17,6 @@ Expands `components.def` via a hierarchical preprocessor DSL to generate:
 #include <stddef.h>
 #include <stdint.h>
 
-#define _FIELD_SELECT(_1, _2, _3, _4, NAME, ...) NAME
-
 /* ============================================================================================== */
 /* >TYPEDEF STRUCT GEN                                                                            */
 /* ============================================================================================== */
@@ -52,7 +50,7 @@ Expands `components.def` via a hierarchical preprocessor DSL to generate:
 #define COMP(NAME)                       typedef struct NAME {
 #define _FIELD_DECL_3(T, NAME,      DEF) T NAME;
 #define _FIELD_DECL_4(T, NAME, CNT, DEF) T NAME[CNT];
-#define FIELD(...)                       _FIELD_SELECT(__VA_ARGS__, _FIELD_DECL_4, _FIELD_DECL_3, 0)(__VA_ARGS__)
+#define FIELD(...)                       VA_JOIN(_FIELD_DECL_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 #define COMP_END(NAME)                   } NAME;
 
 #include "components.def"

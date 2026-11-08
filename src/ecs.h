@@ -317,9 +317,8 @@ ecs_view_t ecs_query_filter(uint64_t with_mask, uint64_t without_mask);
 #define    _ecs_query_comp2(t1, t2)                          ecs_query_mask(BIT(COMP_##t1) | BIT(COMP_##t2))
 #define    _ecs_query_comp3(t1, t2, t3)                      ecs_query_mask(BIT(COMP_##t1) | BIT(COMP_##t2) | BIT(COMP_##t3))
 #define    _ecs_query_comp4(t1, t2, t3, t4)                  ecs_query_mask(BIT(COMP_##t1) | BIT(COMP_##t2) | BIT(COMP_##t3) | BIT(COMP_##t4))
-#define    _ecs_query_comp_select(_1, _2, _3, _4, NAME, ...) NAME
 /* variadic 1-4 param query-by-component, returns dense idxs for entities matching */
-#define    ecs_query_comp(...)                               _ecs_query_comp_select(__VA_ARGS__, _ecs_query_comp4, _ecs_query_comp3, _ecs_query_comp2, _ecs_query_comp1, 0)(__VA_ARGS__)
+#define    ecs_query_comp(...)                               VA_JOIN(_ecs_query_comp, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 
 /*
 ====================

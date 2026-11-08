@@ -40,6 +40,7 @@ Features:
 spatial_entity2d_t
 
 Public 2D spatial entity proxy submitted for broadphase indexing.
+
 Fields:
 - `ent`:    ECS entity handle associated with this bounding volume
 - `bounds`: axis-aligned bounding box in 2D world space
@@ -100,6 +101,7 @@ uint32_t spatial_query_point2d(const spatial_grid2d_t *grid, vec2f point, uint32
 spatial_entity3d_t
 
 Public 3D spatial entity proxy submitted for broadphase indexing.
+
 Fields:
 - `ent`:    ECS entity handle associated with this bounding volume.
 - `bounds`: Axis-aligned bounding box in 3D world space.
@@ -234,13 +236,13 @@ Returns:
 spatial_query_aabb
 
 Queries spatial grid for all entities overlapping `box`
-(`aabb2f` or `aabb3f`). Traverses all grid cells spanned 
-by `box` (clamped to `SPATIAL_MAX_CELL_SPAN`), filters by 
+(`aabb2f` or `aabb3f`). Traverses all grid cells spanned
+by `box` (clamped to `SPATIAL_MAX_CELL_SPAN`), filters by
 layer `mask` (0 matches all), checks exact AABB intersection,
 and deduplicates multi-cell entity overlaps using:
 - for  <2048 entities 2048-bit stack-allocated buffer,
 - for >=2048 entities scratch-allocated        buffer.
-Asserts non-null grid and `out_ents` in debug, 
+Asserts non-null grid and `out_ents` in debug,
 returns `0` in release.
 
 Returns count of unique matching entity handles
