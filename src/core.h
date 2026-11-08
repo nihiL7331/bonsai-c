@@ -157,6 +157,15 @@ Expands `int8/16_t` to `int` via `(x) + 0` casting and uses `abs`.
 
 /*
 ====================
+IDX_2D
+
+Evaluates the array index of an element (x, y) in a two-dimensional array.
+====================
+*/
+#define IDX_2D(x, y, stride) (((size_t)(y) * (size_t)(stride)) + (size_t)(x))
+
+/*
+====================
 IS_POW2
 
 Evaluates whether integer `x` is a non-zero power of 2 without branching.
