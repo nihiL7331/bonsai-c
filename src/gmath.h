@@ -728,6 +728,11 @@ static inline vec4f mat4f_mul_vec4f(mat4f m, vec4f v) {
             if (a.min.v[i] > b.max.v[i] || a.max.v[i] < b.min.v[i]) return false;                  \
         return true;                                                                               \
     }                                                                                              \
+    static inline bool NAME##_valid(NAME b) {                                                      \
+        for (size_t i = 0; i < (DIM); ++i)                                                         \
+            if (b.min.v[i] >= b.max.v[i]) return false;                                            \
+        return true;                                                                               \
+    }                                                                                              \
     static inline bool NAME##_contains(NAME b, VEC_T p) {                                          \
         for (size_t i = 0; i < (DIM); ++i)                                                         \
             if (p.v[i] < b.min.v[i] || p.v[i] > b.max.v[i]) return false;                          \
@@ -803,6 +808,20 @@ Returns:
 ====================
 */
 #define aabb_inter(a, b) _Generic((a), aabb2f: aabb2f_inter, aabb2i: aabb2i_inter, aabb3f: aabb3f_inter, aabb3i: aabb3i_inter)((a), (b))
+
+/*
+====================
+aabb_valid
+
+Tests whether AABB `b` is valid,
+that is for each coordinate min_c < max_c is true.
+
+Returns:
+- `true` if `b` is a valid AABB.
+- `false` otherwise.
+====================
+*/
+#define aabb_valid(b) _Generic((b), aabb2f: aabb2f_valid, aabb2i: aabb2i_valid, aabb3f: aabb3f_valid, aabb3i: aabb3i_valid)((b))
 
 /*
 ====================
