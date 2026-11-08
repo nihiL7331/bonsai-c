@@ -288,7 +288,7 @@ int main(void) {
     } TEST_CASE_END();
 
     TEST_CASE("vec_clamp", "clamps vector components within range") {
-        vec2f v2 = vec_clamp(vec2f(-5.0f, 40.0f), vec2f(0.0f, 0.0f), vec2f(10.0f, 10.0f));
+        vec2f v2 = vec_clamp(vec2f(-5, 40), vec2f(0, 0), vec2f(10, 10));
         TEST_ASSERT(feq(v2.x, 0.0f) && feq(v2.y, 10.0f), "exp (0.0, 10.0), got (%f, %f)", v2.x, v2.y);
 
         vec3i v3 = vec_clamp(vec3i(-10, 5, 25), vec3i(0, 0, 0), vec3i(10, 10, 10));
@@ -313,6 +313,18 @@ int main(void) {
         aabb2f bf = aabb_expand(aabb2f(vec2f(2.0f, 4.0f), vec2f(8.0f, 10.0f)), vec2f(1.5f, 0.5f));
         TEST_ASSERT(feq(bf.min_x, 0.5f) && feq(bf.min_y, 3.5f) && feq(bf.max_x, 9.5f) && feq(bf.max_y, 10.5f),
                     "exp [0.5, 3.5 -> 9.5, 10.5], got [%f, %f -> %f, %f]", bf.min_x, bf.min_y, bf.max_x, bf.max_y);
+    } TEST_CASE_END();
+
+    TEST_CASE("aabb_valid", "checks whether min < max along all axes") {
+        TEST_ASSERT( aabb_valid(aabb2i(vec2i(0, 0),  vec2i(10, 10))), "positive 2D integer box exp true");
+        TEST_ASSERT(!aabb_valid(aabb2i(vec2i(10, 0), vec2i(10, 10))), "zero width 2D integer box exp false");
+        TEST_ASSERT(!aabb_valid(aabb2i(vec2i(15, 0), vec2i(10, 10))), "inverted 2D integer box exp false");
+
+        TEST_ASSERT( aabb_valid(aabb2f(vec2f(0, 0), vec2f(1, 1))), "positive 2D float box exp true");
+        TEST_ASSERT(!aabb_valid(aabb2f(vec2f(1, 0), vec2f(1, 1))), "zero width 2D float box exp false");
+
+        TEST_ASSERT( aabb_valid(aabb3f(vec3f(0, 0, 0), vec3f(1, 1, 1))), "positive 3D float box exp true");
+        TEST_ASSERT(!aabb_valid(aabb3f(vec3f(0, 0, 2), vec3f(1, 1, 1))), "inverted Z 3D float box exp false");
     } TEST_CASE_END();
 
     TEST_END();
