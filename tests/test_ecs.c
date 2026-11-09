@@ -7,9 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define TEST_PERM_SZ    MB(32)
-#define TEST_SCRATCH_SZ MB(4)
-
 static arena_t s_perm_arena;
 static arena_t s_scratch_arena;
 
@@ -20,12 +17,8 @@ static ecs_world_t *reset_world(void) {
 }
 
 int main(void) {
-    void *perm_buf    = malloc(TEST_PERM_SZ);
-    void *scratch_buf = malloc(TEST_SCRATCH_SZ);
-    if (!perm_buf || !scratch_buf) return 1;
-
-    arena_init(&s_perm_arena,    perm_buf,    TEST_PERM_SZ);
-    arena_init(&s_scratch_arena, scratch_buf, TEST_SCRATCH_SZ);
+    if (arena_init_vm(&s_perm_arena,    0) != OK ||
+        arena_init_vm(&s_scratch_arena, 0) != OK) return 1;
 
     TEST_CASE("ecs_spawn_index", "assigns sequential non-zero indices") {
         reset_world();
@@ -334,8 +327,8 @@ int main(void) {
     } TEST_CASE_END();
 
     ecs_set_world(NULL);
-    free(perm_buf);
-    free(scratch_buf);
+    arena_free_vm(&s_perm_arena);
+    arena_free_vm(&s_scratch_arena);
 
     TEST_END();
 }

@@ -15,6 +15,23 @@ and scoped checkpoint unwinds via `arena_temp_t`.
 #include <stdbool.h>
 #include <stddef.h>
 
+#ifdef _WIN32
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif /* !WIN32_LEAN_AND_MEAN */
+    #include <windows.h>
+#else  /* !defined(_WIN32) */
+    #include <sys/mman.h>
+    #ifndef MAP_ANONYMOUS
+        #define MAP_ANONYMOUS MAP_ANON
+    #endif /* !defined(MAP_ANONYMOUS) */
+    #ifndef MAP_NORESERVE
+        #define MAP_NORESERVE 0
+    #endif /* !defined(MAP_NORESERVE) */
+#endif /* !defined(_WIN32) */
+
+#define ARENA_DEF_VM_CAP GB(1)
+
 /* ============================================================================================== */
 /* >TYPES                                                                                         */
 /* ============================================================================================== */
@@ -94,6 +111,70 @@ static inline res_t arena_init(arena_t *a, void *buf, size_t cap) {
     arena_reset(a);
 
     return a->cap ? OK : WEMPTY;
+}
+
+/*
+====================
+arena_init_vm
+
+Initializes a demand-paged virtual-memory arena of capacity `cap`.
+Reserves contiguous virtual address space via OS `mmap` on POSIX
+or `VirtualAlloc` on Windows.
+If `cap == 0`, defaults to `ARENA_DEF_VM_CAP` (1 GB).
+Physical 4 KB (or 16 KB on macOS ARM) RAM pages are faulted in
+by the OS kernel only when written.
+Pair with `arena_free_vm` to release the virtual address range.
+
+Returns:
+- `OK`     on successful virtual memory reservation.
+- `EINVAL` if `a` is `NULL`.
+- `EOOM`   if OS virtual memory reservation fails.
+====================
+*/
+static inline res_t arena_init_vm(arena_t *a, size_t cap) {
+    ASSERT(a, "Attempted VM init on NULL arena (cap: %zu)", cap);
+    if   (!a) return EINVAL;
+
+    size_t aligned_cap = ALIGN_LINE_INT(cap ? cap : ARENA_DEF_VM_CAP);
+#ifdef _WIN32
+    void *buf = VirtualAlloc(NULL, aligned_cap, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if  (!buf) return EOOM;
+#else  /* !defined(_WIN32) */
+    void  *buf = mmap(NULL, aligned_cap, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+    if    (buf == MAP_FAILED) return EOOM;
+#endif /* !defined(_WIN32) */
+
+    a->buf = buf;
+    a->cap = aligned_cap;
+    arena_reset(a);
+
+    return OK;
+}
+
+/*
+====================
+arena_free_vm
+
+Releases a demand-paged virtual-memory arena previously initialized
+via `arena_init_vm` back to the OS (`munmap` / `VirtualFree`) and zeroes `*a`.
+
+Returns:
+- `OK`     on successful unmapping.
+- `EINVAL` if `a` is `NULL`, uninitialized, or OS release fails.
+====================
+*/
+static inline res_t arena_free_vm(arena_t *a) {
+    ASSERT(a, "Attempted VM free on NULL arena");
+    if   (!a || !a->buf || !a->cap) return EINVAL;
+
+#ifdef _WIN32
+    bool ok = (VirtualFree(a->buf, 0, MEM_RELEASE) != 0);
+#else  /* !defined(_WIN32) */
+    bool ok = (munmap(a->buf, a->cap) == 0);
+#endif /* !defined(_WIN32) */
+    *a = (arena_t){0};
+
+    return ok ? OK : EINVAL;
 }
 
 /* ============================================================================================== */

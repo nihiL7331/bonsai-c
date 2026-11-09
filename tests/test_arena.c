@@ -125,5 +125,50 @@ int main(void) {
         TEST_ASSERT(nxt == s1, "realloced addr (%p) doesnt match rewound addr (%p)", nxt, s1);
     } TEST_CASE_END();
 
+    TEST_CASE("arena_vm_def", "reserves def VM arena and demand-pages writes") {
+        arena_t a = {0};
+        res_t   r = arena_init_vm(&a, 0);
+
+        TEST_ASSERT(r     == OK,               "arena_init_vm(0) failed with %d", r);
+        TEST_ASSERT(a.buf != NULL,             "VM buf is NULL");
+        TEST_ASSERT(a.cap == ARENA_DEF_VM_CAP, "exp cap %zu, got %zu", (size_t)ARENA_DEF_VM_CAP, a.cap);
+        TEST_ASSERT(a.off == 0,                "exp initial off 0, got %zu", a.off);
+        TEST_ASSERT(!((uintptr_t)a.buf % CACHE_LINE_SZ), "VM buf not 64B aligned: %p", a.buf);
+
+        uint32_t *blk1 = (uint32_t *)arena_alloc(&a, MB(4));
+        uint32_t *blk2 = (uint32_t *)arena_alloc(&a, MB(8));
+        TEST_ASSERT(blk1 != NULL && blk2 != NULL, "VM arena multi-MB alloc failed");
+        TEST_ASSERT(arena_has(&a, blk1, MB(4)),   "arena_has failed for blk1");
+        TEST_ASSERT(arena_has(&a, blk2, MB(8)),   "arena_has failed for blk2");
+
+        /* touch first and last pages to trigger demand paging */
+        blk1[0]                           = 0xDEADBEEFU;
+        blk2[(MB(8) / sizeof(*blk2)) - 1] = 0xCAFEBABEU;
+        TEST_ASSERT(blk1[0] == 0xDEADBEEFU,                           "blk1 write/read mismatch");
+        TEST_ASSERT(blk2[(MB(8) / sizeof(*blk2)) - 1] == 0xCAFEBABEU, "blk2 write/read mismatch");
+
+        res_t fr = arena_free_vm(&a);
+        TEST_ASSERT(fr    == OK,   "arena_free_vm failed with %d", fr);
+        TEST_ASSERT(a.buf == NULL, "buf not cleared after free");
+        TEST_ASSERT(a.cap == 0,    "cap not cleared after free");
+        TEST_ASSERT(a.off == 0,    "off not cleared after free");
+    } TEST_CASE_END();
+
+    TEST_CASE("arena_vm_custom", "reserves explicit VM capacity and aligns up") {
+        arena_t a = {0};
+        res_t   r = arena_init_vm(&a, 100);
+
+        TEST_ASSERT(r     == OK,                  "arena_init_vm(100) failed");
+        TEST_ASSERT(a.cap == ALIGN_LINE_INT(100), "exp aligned cap %zu, got %zu", ALIGN_LINE_INT(100), a.cap);
+
+        void *p1 = arena_alloc(&a, 64);
+        void *p2 = arena_alloc(&a, 64);
+        TEST_ASSERT(p1 != NULL && p2 != NULL, "expected 2x64B allocs to succeed");
+        TEST_ASSERT(a.off == a.cap,           "expected arena to be full");
+
+        TEST_ASSERT(arena_free_vm(&a) == OK,  "arena_free_vm failed");
+        TEST_ASSERT(arena_free_vm(&a) == EINVAL, "double free on zeroed arena must return EINVAL");
+    } TEST_CASE_END();
+
     TEST_END();
 }
