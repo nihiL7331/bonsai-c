@@ -22,12 +22,20 @@ static ecs_world_t *s_active_world = NULL;
 /* >WORLD API                                                                                     */
 /* ============================================================================================== */
 
+typedef struct ecs_snapshot_hdr {
+    entity_mgr_t mgr;
+    uint32_t     pool_cnts[COMP_CNT];
+    void        *pool_dense[COMP_CNT];
+    uint16_t    *pool_ents[COMP_CNT];
+} ecs_snapshot_hdr_t;
+
 /* Seeds the entity free list and marks generation 1 for all usable indices */
 static inline void _ecs_world_entity_mgr_init(entity_mgr_t *mgr) {
     mgr->gens[0] = 0UL;
     mgr->free_hd = ECS_MAX_ENTITIES;
     for (size_t i = 0; i < ECS_MAX_ENTITIES; ++i) {
         mgr->gens[i + 1]  = 1UL;                              /* ENTITY_NULL,     1,      1,     1,      ... */
+        mgr->flags[i + 1] = ENTITY_FLAG_DEAD;
         mgr->free_list[i] = (uint16_t)(ECS_MAX_ENTITIES - i); /* ECS_MAX_ENTITIES, ECS_MAX_ENTITIES - 1, ... */
     }
 }
@@ -66,6 +74,72 @@ void ecs_set_world(ecs_world_t *world) {
 
 ecs_world_t *ecs_get_world(void) {
     return s_active_world;
+}
+
+res_t ecs_world_snapshot(void) {
+    ecs_world_t *world = ecs_get_world();
+    ASSERT(world && world->backup, "Attempted snapshot with NULL active world or backup arena");
+    if   (!world || !world->backup) return EINVAL;
+
+    arena_reset(world->backup);
+
+    ecs_snapshot_hdr_t *hdr = (ecs_snapshot_hdr_t *)arena_alloc(world->backup, sizeof(ecs_snapshot_hdr_t));
+    if (!hdr) return EOOM;
+
+    hdr->mgr = world->mgr;
+
+    for (size_t i = 0; i < COMP_CNT; ++i) {
+        const ecs_pool_t *p = &world->pools[i];
+        hdr->pool_cnts[i]   = p->cnt;
+
+        if (!p->cnt) {
+            hdr->pool_dense[i] = NULL;
+            hdr->pool_ents[i]  = NULL;
+            continue;
+        }
+
+        size_t dense_sz = (size_t)p->cnt * p->elem_sz;
+        size_t ents_sz  = (size_t)p->cnt * sizeof(uint16_t);
+
+        hdr->pool_dense[i] = arena_alloc(world->backup, dense_sz);
+        hdr->pool_ents[i]  = (uint16_t *)arena_alloc(world->backup, ents_sz);
+        if (!hdr->pool_dense[i] || !hdr->pool_ents[i]) { arena_reset(world->backup); return EOOM; }
+
+        memcpy(hdr->pool_dense[i], p->dense,    dense_sz);
+        memcpy(hdr->pool_ents[i],  p->entities, ents_sz);
+    }
+
+    return OK;
+}
+
+res_t ecs_world_rollback(void) {
+    ecs_world_t *world = ecs_get_world();
+    ASSERT(world && world->backup, "Attempted rollback with NULL active world or backup arena");
+    if   (!world || !world->backup)                        return EINVAL;
+    if   (world->backup->off < sizeof(ecs_snapshot_hdr_t)) return ENOTFND;
+
+    const ecs_snapshot_hdr_t *hdr = (const ecs_snapshot_hdr_t *)world->backup->buf;
+
+    world->mgr     = hdr->mgr;
+    world->cmd_cnt = 0UL;
+    world->cmd_cap = 0UL;
+    world->cmd_buf = NULL;
+
+    for (size_t i = 0; i < COMP_CNT; ++i) {
+        ecs_pool_t *p = &world->pools[i];
+
+        for (uint32_t d = 0UL; d < p->cnt; ++d) p->sparse[p->entities[d]] = ECS_NULL_IDX;
+
+        p->cnt = hdr->pool_cnts[i];
+        if (!p->cnt) continue;
+
+        memcpy(p->dense,    hdr->pool_dense[i], (size_t)p->cnt * p->elem_sz);
+        memcpy(p->entities, hdr->pool_ents[i],  (size_t)p->cnt * sizeof(uint16_t));
+
+        for (uint32_t d = 0UL; d < p->cnt; ++d) p->sparse[p->entities[d]] = (uint16_t)d;
+    }
+
+    return OK;
 }
 
 /* ============================================================================================== */
@@ -111,7 +185,6 @@ static inline void _ecs_pool_remove(ecs_world_t *world, uint16_t e_idx, comp_id_
 
     world->mgr.comp_mask[e_idx] &= ~BIT(comp);
     p->sparse[e_idx]             = ECS_NULL_IDX;
-    p->dirty                     = true;
     p->cnt--;
 }
 
@@ -202,7 +275,7 @@ void ecs_sync(void) {
                 mask &= mask - 1ULL;
             }
 
-            mgr->flags[e_idx]     = 0U;
+            mgr->flags[e_idx]     = ENTITY_FLAG_DEAD;
             mgr->comp_mask[e_idx] = 0ULL;
 
             mgr->gens[e_idx]++;
@@ -313,7 +386,6 @@ void *ecs_add_raw(entity_handle_t e, comp_id_t id, const void *val) {
     uint16_t d_idx               = (uint16_t)p->cnt++;
     p->sparse[e_idx]             = d_idx;
     p->entities[d_idx]           = e_idx;
-    p->dirty                     = true;
     world->mgr.comp_mask[e_idx] |= BIT(id);
 
     void *dst = (uint8_t *)p->dense + ((size_t)d_idx * p->elem_sz);

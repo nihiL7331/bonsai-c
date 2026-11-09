@@ -99,7 +99,6 @@ typedef struct ecs_pool {
     uint16_t elem_sz;
     uint16_t sparse[ECS_MAX_ENTITIES + 1];   /* ent_idx -> dense_idx, ECS_NULL_IDX inc. */
     uint16_t entities[ECS_MAX_ENTITIES + 1]; /* dense_idx -> ent_idx                    */
-    bool     dirty;
 } ecs_pool_t;
 
 /*
@@ -207,6 +206,50 @@ Returns:
 ====================
 */
 ecs_world_t *ecs_get_world(void);
+
+/*
+====================
+ecs_world_snapshot
+
+Captures a compact transactional snapshot
+of the active world into `world->backup`.
+Copies `world->mgr` and only the active
+dense slice (`0, ..., cnt - 1`) of
+non-empty component pools. Ovewrites any
+previous snapshot in `world->backup`.
+Asserts active world and backup arena in
+debug, returns result code in release.
+
+Returns:
+- `OK`     on successful snapshot capture.
+- `EINVAL` if active world or `world->backup` is `NULL`.
+- `EOOM`   if `world->backup` lacks capacity for the snapshot.
+====================
+*/
+res_t ecs_world_snapshot(void);
+
+/*
+====================
+ecs_world_rollback
+
+Restores the active world from the
+snapshot stored in `world->backup`.
+Restores `world->mgr`, discards pending
+deferred commands, restores active dense
+component slices, and reconstructs
+`sparse` lookup tables in O(cnt) time.
+Preserves the snapshot in `world->backup`
+so rollback can be called repeatedly.
+Asserts active world and backup arena in debug,
+returns result code in release.
+
+Returns:
+- `OK`      on successful state restoration.
+- `EINVAL`  if active world or `world->backup` is `NULL`.
+- `ENOTFND` if no valid snapshot exists in `world->backup`.
+====================
+*/
+res_t ecs_world_rollback(void);
 
 /*
 ====================

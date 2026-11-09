@@ -8,16 +8,19 @@
 #include <string.h>
 
 static arena_t s_perm_arena;
+static arena_t s_backup_arena;
 static arena_t s_scratch_arena;
 
 static ecs_world_t *reset_world(void) {
     arena_reset(&s_perm_arena);
+    arena_reset(&s_backup_arena);
     arena_reset(&s_scratch_arena);
-    return ecs_world_create(&s_perm_arena, NULL, &s_scratch_arena);
+    return ecs_world_create(&s_perm_arena, &s_backup_arena, &s_scratch_arena);
 }
 
 int main(void) {
     if (arena_init_vm(&s_perm_arena,    0) != OK ||
+        arena_init_vm(&s_backup_arena,  0) != OK ||
         arena_init_vm(&s_scratch_arena, 0) != OK) return 1;
 
     TEST_CASE("ecs_spawn_index", "assigns sequential non-zero indices") {
@@ -326,8 +329,64 @@ int main(void) {
         TEST_ASSERT(ecs_find_tag("dead")    == ENTITY_NULL, "dead entity tag must return ENTITY_NULL");
     } TEST_CASE_END();
 
+    TEST_CASE("ecs_snap_rollback", "captures and restores world across muts") {
+        ecs_world_t    *w  = reset_world();
+        entity_handle_t e1 = ecs_spawn();
+        entity_handle_t e2 = ecs_spawn();
+
+        trans2d t1 = { .x = 10.0f, .y = 20.0f, .rot = 0.0f, .scale = 1.0f };
+        trans2d t2 = { .x = 30.0f, .y = 40.0f, .rot = 1.0f, .scale = 2.0f };
+        ecs_add(e1, trans2d,  &t1);
+        ecs_add(e1, sprite2d, NULL);
+        ecs_add(e2, trans2d,  &t2);
+
+        TEST_ASSERT(ecs_world_snapshot() == OK, "ecs_world_snapshot failed");
+
+        /* mutate e1, destroy e2, spawn e3, and sync */
+        ecs_get(e1, trans2d)->x = 999.0f;
+        ecs_add(e1, rb2d, NULL);
+        ecs_destroy(e2);
+        entity_handle_t e3 = ecs_spawn();
+        ecs_add(e3, tag, NULL);
+        ecs_sync();
+
+        TEST_ASSERT(ecs_get(e1, trans2d)->x == 999.0f, "expected mutated e1.x == 999");
+        TEST_ASSERT(ecs_has(e1, rb2d),                 "expected e1 to own rb2d before rollback");
+        TEST_ASSERT(!ecs_is_alive(e2),                 "expected e2 dead before rollback");
+        TEST_ASSERT(ecs_is_alive(e3),                  "expected e3 alive before rollback");
+
+        /* first rollback */
+        TEST_ASSERT(ecs_world_rollback() == OK, "first ecs_world_rollback failed");
+        TEST_ASSERT(w->mgr.alive_cnt == 2U,             "alive_cnt mismatch after rollback");
+        TEST_ASSERT(ecs_is_alive(e1),                   "e1 must be alive after rollback");
+        TEST_ASSERT(ecs_is_alive(e2),                   "e2 must be restored alive after rollback");
+        TEST_ASSERT(!ecs_is_alive(e3),                  "e3 must not exist after rollback");
+        TEST_ASSERT(!ecs_has(e1, rb2d),                 "e1 must not own rb2d after rollback");
+        TEST_ASSERT(ecs_has(e1, sprite2d),              "e1 must still own sprite2d after rollback");
+        TEST_ASSERT(ecs_get(e1, trans2d)->x == 10.0f,   "e1.x not restored to 10.0f");
+        TEST_ASSERT(ecs_get(e2, trans2d)->x == 30.0f,   "e2.x not restored to 30.0f");
+
+        /* queue unsynced deferred commands and mutate again, then rollback a 2nd time */
+        ecs_destroy(e1);
+        ecs_del(e2, trans2d);
+        TEST_ASSERT(w->cmd_cnt == 2U,                   "expected 2 queued deferred commands");
+        TEST_ASSERT(ecs_world_rollback() == OK,         "second repeated ecs_world_rollback failed");
+        TEST_ASSERT(w->cmd_cnt == 0U,                   "rollback must discard pending deferred cmds");
+        TEST_ASSERT(ecs_is_alive(e1),                   "e1 must be alive after 2nd rollback");
+        TEST_ASSERT(ecs_get(e2, trans2d)->y == 40.0f,   "e2.y not intact after 2nd rollback");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_rollback_empty", "returns ENOTFND when roll back without snapshot") {
+        reset_world();
+        entity_handle_t e = ecs_spawn();
+        ecs_add(e, trans2d, NULL);
+
+        TEST_ASSERT(ecs_world_rollback() == ENOTFND, "rollback without snapshot must return ENOTFND");
+    } TEST_CASE_END();
+
     ecs_set_world(NULL);
     arena_free_vm(&s_perm_arena);
+    arena_free_vm(&s_backup_arena);
     arena_free_vm(&s_scratch_arena);
 
     TEST_END();
