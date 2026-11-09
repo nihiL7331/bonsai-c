@@ -204,7 +204,7 @@ res_t spatial_grid2d_build_from_ecs(spatial_grid2d_t *grid, ecs_world_t *world, 
     if (world) ecs_set_world(world);
 
     ecs_view_t view = ecs_query_comp(trans2d, collider2d);
-    if (!view.cnt || !view.rows) {
+    if (!view.cnt || !view.ents) {
         if (world) ecs_set_world(prev); /* revert */
         return spatial_grid2d_build(grid, NULL, 0, scratch);
     }
@@ -216,7 +216,7 @@ res_t spatial_grid2d_build_from_ecs(spatial_grid2d_t *grid, ecs_world_t *world, 
     }
 
     for (uint32_t i = 0; i < view.cnt; ++i) {
-        entity_handle_t ent = view.rows[i].ent;
+        entity_handle_t ent   = view.ents[i];
         const trans2d    *t   = ecs_get(ent, trans2d);
         const collider2d *col = ecs_get(ent, collider2d);
 
@@ -481,7 +481,7 @@ res_t spatial_grid3d_build_from_ecs(spatial_grid3d_t *grid, ecs_world_t *world, 
     if (world) ecs_set_world(world);
 
     ecs_view_t view = ecs_query_comp(trans3d, collider3d);
-    if (!view.cnt || !view.rows) {
+    if (!view.cnt || !view.ents) {
         if (world) ecs_set_world(prev); /* revert */
         return spatial_grid3d_build(grid, NULL, 0, scratch);
     }
@@ -493,7 +493,7 @@ res_t spatial_grid3d_build_from_ecs(spatial_grid3d_t *grid, ecs_world_t *world, 
     }
 
     for (uint32_t i = 0; i < view.cnt; ++i) {
-        entity_handle_t   ent = view.rows[i].ent;
+        entity_handle_t   ent = view.ents[i];
         const trans3d    *t   = ecs_get(ent, trans3d);
         const collider3d *col = ecs_get(ent, collider3d);
 

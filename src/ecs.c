@@ -225,40 +225,29 @@ void ecs_sync(void) {
 ecs_view_t ecs_query_filter(uint64_t with_mask, uint64_t without_mask) {
     ecs_world_t *world = ecs_get_world();
     ASSERT(world, "Attempted query with NULL active world (with_mask: %" PRIu64 ", without_mask: %" PRIu64 ")", with_mask, without_mask);
-    if   (!world || !with_mask) return (ecs_view_t){ .rows = NULL, .cnt = 0UL };
+    if (!world || !with_mask || (with_mask & without_mask) != 0ULL) return (ecs_view_t){ .ents = NULL, .cnt = 0UL };
 
-    /* extract comp ids from bitmask */
-    uint8_t  comp_ids[4] = {0};
-    uint32_t comp_cnt    = 0UL;
-    uint64_t tmp         = with_mask;
-
-    while (tmp && comp_cnt < 4) {
-        comp_ids[comp_cnt++] = (uint8_t)__builtin_ctzll(tmp);
-        tmp                 &= tmp - 1ULL;
-    }
-
-    /* find smallest pool to minimize loop iters */
+    /* find smallest pool in with_mask to minimize loop iters */
     uint32_t min_cnt  = UINT32_MAX;
-    uint8_t  min_comp = comp_ids[0];
+    uint8_t  min_comp = 0U;
+    uint64_t tmp      = with_mask;
 
-    for (uint32_t i = 0UL; i < comp_cnt; ++i) {
-        uint8_t cid = comp_ids[i];
-        if (cid >= COMP_CNT) {
-            min_cnt = 0;
-            break;
-        }
+    while (tmp) {
+        uint8_t cid = (uint8_t)__builtin_ctzll(tmp);
+        tmp        &= tmp - 1ULL;
+
+        if (cid >= COMP_CNT) return (ecs_view_t){ .ents = NULL, .cnt = 0UL };
 
         if (world->pools[cid].cnt < min_cnt) {
             min_cnt  = world->pools[cid].cnt;
             min_comp = cid;
+            if (!min_cnt) return (ecs_view_t){ .ents = NULL, .cnt = 0UL };
         }
     }
 
-    if (!min_cnt) return (ecs_view_t){ .rows = NULL, .cnt = 0UL };
-
-    /* scratch-alloc row arr for worst-case match count */
-    ecs_view_row_t *rows = (ecs_view_row_t *)arena_alloc(world->scratch, sizeof(ecs_view_row_t) * min_cnt);
-    if (!rows) return (ecs_view_t){ .rows = NULL, .cnt = 0 };
+    /* scratch-alloc handle arr for worst-case match count */
+    entity_handle_t *ents = (entity_handle_t *)arena_alloc(world->scratch, sizeof(entity_handle_t) * min_cnt);
+    if (!ents) return (ecs_view_t){ .ents = NULL, .cnt = 0UL };
 
     ecs_pool_t *sp      = &world->pools[min_comp];
     uint32_t    matched = 0UL;
@@ -270,12 +259,10 @@ ecs_view_t ecs_query_filter(uint64_t with_mask, uint64_t without_mask) {
         uint64_t mask = world->mgr.comp_mask[e_idx];
         if ((mask & with_mask) != with_mask || (mask & without_mask) != 0ULL) continue;
 
-        ecs_view_row_t *row = &rows[matched++];
-        row->ent            = entity_handle(world->mgr.gens[e_idx], world->mgr.flags[e_idx], e_idx);
-        for (uint32_t c = 0UL; c < comp_cnt; ++c) row->dense_idxs[c] = world->pools[comp_ids[c]].sparse[e_idx];
+        ents[matched++] = entity_handle(world->mgr.gens[e_idx], world->mgr.flags[e_idx], e_idx);
     }
 
-    return (ecs_view_t){ .rows = rows, .cnt = matched };
+    return (ecs_view_t){ .ents = ents, .cnt = matched };
 }
 
 /* ============================================================================================== */

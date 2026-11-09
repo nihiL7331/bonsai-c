@@ -153,31 +153,17 @@ typedef struct ecs_world {
 
 /*
 ====================
-ecs_view_row_t
-
-Single entity match row in an `ecs_view_t`.
-Stores:
-- entity handle `ent`        (generational handle of matched entity)
-- dense indices `dense_idxs` (dense array indices for matched components, up to 4)
-====================
-*/
-typedef struct ecs_view_row {
-    entity_handle_t ent;
-    uint16_t        dense_idxs[4];
-} ecs_view_row_t;
-
-/*
-====================
 ecs_view_t
 
 Scratch-allocated query match result.
-Stores matched entity handles and dense component pool indices.
-Allocated from `world->scratch` and lives until the next frame scratch reset.
+Stores a contiguous array of matched entity handles (`ents`)
+and match count (`cnt`). Allocated from `world->scratch` and
+valid until the next frame scratch reset.
 ====================
 */
 typedef struct ecs_view {
-    ecs_view_row_t *rows;
-    uint32_t        cnt;
+    entity_handle_t *ents;
+    uint32_t         cnt;
 } ecs_view_t;
 
 /* ============================================================================================== */
@@ -294,31 +280,66 @@ void ecs_sync(void);
 ====================
 ecs_query_filter
 
-Queries entities matching all components in `with_mask` while
-excluding entities matching any component in `without_mask`.
-Up to 4 components per query.
-Iterates over the smallest matching component pool to minimize traversals.
-Results are allocated in `world->scratch`.
+Queries living entities matching all components in `with_mask`
+while excluding entities matching any component in `without_mask`
+(1 to 64 components). Iterates over the smallest matching component
+pool in `with_mask` to minimize traversals. Results are allocated
+in `world->scratch`.
 
-Returns an `ecs_view_t` containing matched entity handles and dense row indices.
+Returns an `ecs_view_t` containing matched entity handles.
 ====================
 */
 ecs_view_t ecs_query_filter(uint64_t with_mask, uint64_t without_mask);
 
-#define    _ecs_query_mask1(with)                            ecs_query_filter((with), 0ULL)
-#define    _ecs_query_mask2(with, without)                   ecs_query_filter((with), (without))
-#define    _ecs_query_mask_select(_1, _2, NAME, ...)         NAME
+#define _ECS_MASK1(t1)        BIT(COMP_##t1)
+#define _ECS_MASK2(t1, ...)  (BIT(COMP_##t1) | _ECS_MASK1(__VA_ARGS__))
+#define _ECS_MASK3(t1, ...)  (BIT(COMP_##t1) | _ECS_MASK2(__VA_ARGS__))
+#define _ECS_MASK4(t1, ...)  (BIT(COMP_##t1) | _ECS_MASK3(__VA_ARGS__))
+#define _ECS_MASK5(t1, ...)  (BIT(COMP_##t1) | _ECS_MASK4(__VA_ARGS__))
+#define _ECS_MASK6(t1, ...)  (BIT(COMP_##t1) | _ECS_MASK5(__VA_ARGS__))
+#define _ECS_MASK7(t1, ...)  (BIT(COMP_##t1) | _ECS_MASK6(__VA_ARGS__))
+#define _ECS_MASK8(t1, ...)  (BIT(COMP_##t1) | _ECS_MASK7(__VA_ARGS__))
+#define _ECS_MASK9(t1, ...)  (BIT(COMP_##t1) | _ECS_MASK8(__VA_ARGS__))
+#define _ECS_MASK10(t1, ...) (BIT(COMP_##t1) | _ECS_MASK9(__VA_ARGS__))
+#define _ECS_MASK11(t1, ...) (BIT(COMP_##t1) | _ECS_MASK10(__VA_ARGS__))
+#define _ECS_MASK12(t1, ...) (BIT(COMP_##t1) | _ECS_MASK11(__VA_ARGS__))
+#define _ECS_MASK13(t1, ...) (BIT(COMP_##t1) | _ECS_MASK12(__VA_ARGS__))
+#define _ECS_MASK14(t1, ...) (BIT(COMP_##t1) | _ECS_MASK13(__VA_ARGS__))
+#define _ECS_MASK15(t1, ...) (BIT(COMP_##t1) | _ECS_MASK14(__VA_ARGS__))
+
+/* variadic 1-16 component bitmask builder: ecs_mask(trans2d, sprite2d, ...) */
+#define ecs_mask(...) VA_JOIN(_ECS_MASK, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+#define _ecs_query_mask1(with)                    ecs_query_filter((with), 0ULL)
+#define _ecs_query_mask2(with, without)           ecs_query_filter((with), (without))
 /* variadic 1-2 param query-by-mask:                           */
 /* - if 1 arg  provided acts like ecs_query_filter(arg1, 0),   */
 /* - if 2 args provided acts like ecs_query_filter(arg1, arg2) */
-#define    ecs_query_mask(...)                               _ecs_query_mask_select(__VA_ARGS__, _ecs_query_mask2, _ecs_query_mask1, 0)(__VA_ARGS__)
+#define ecs_query_mask(...) VA_JOIN(_ecs_query_mask, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
 
-#define    _ecs_query_comp1(t1)                              ecs_query_mask(BIT(COMP_##t1))
-#define    _ecs_query_comp2(t1, t2)                          ecs_query_mask(BIT(COMP_##t1) | BIT(COMP_##t2))
-#define    _ecs_query_comp3(t1, t2, t3)                      ecs_query_mask(BIT(COMP_##t1) | BIT(COMP_##t2) | BIT(COMP_##t3))
-#define    _ecs_query_comp4(t1, t2, t3, t4)                  ecs_query_mask(BIT(COMP_##t1) | BIT(COMP_##t2) | BIT(COMP_##t3) | BIT(COMP_##t4))
-/* variadic 1-4 param query-by-component, returns dense idxs for entities matching */
-#define    ecs_query_comp(...)                               VA_JOIN(_ecs_query_comp, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+/* variadic 1-16 param query-by-component */
+#define ecs_query_comp(...) ecs_query_mask(ecs_mask(__VA_ARGS__))
+
+static inline void *ecs_get_fast_raw(const ecs_world_t *world, entity_handle_t e, comp_id_t id) {
+    ASSERT(world,                                           "Attempted ecs_get_fast with NULL world (e: %" PRIu64 ", id: %d)", e, id);
+    ASSERT((world->mgr.comp_mask[entity_idx(e)] & BIT(id)), "ecs_get_fast on unowned component (e: %" PRIu64 ", id: %d)", e, id);
+    const ecs_pool_t *p = &world->pools[id];
+    return (uint8_t *)p->dense + ((size_t)p->sparse[entity_idx(e)] * p->elem_sz);
+}
+
+/*
+====================
+ecs_get_fast
+
+Unchecked O(1) component lookup in `world` for an entity `e`
+already verified alive and owning component `id`.
+Asserts valid world and component ownership in debug,
+zero-branch in release.
+
+Returns pointer to component memory in the dense pool.
+====================
+*/
+#define ecs_get_fast(world, entity_handle, type) ((type *)ecs_get_fast_raw((world), (entity_handle), COMP_##type))
 
 /*
 ====================
