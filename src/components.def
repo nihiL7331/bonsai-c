@@ -198,3 +198,24 @@ Stores:
 COMP(tag)
     FIELD(char, name, 32, "")
 COMP_END(tag)
+
+/*
+====================
+hierarchy
+
+Intrusive relational scene-tree node links.
+Stores:
+- parent entity      `parent`       (parent handle,        default: `ENTITY_NULL`)
+- first child entity `first_child`  (head of child list,   default: `ENTITY_NULL`)
+- previous sibling   `prev_sibling` (left sibling handle,  default: `ENTITY_NULL`)
+- next sibling       `next_sibling` (right sibling handle, default: `ENTITY_NULL`)
+- direct child count `child_cnt`    (number of children,   default: 0)
+====================
+*/
+COMP(hierarchy)
+    FIELD(entity_handle_t, parent,       ENTITY_NULL)
+    FIELD(entity_handle_t, first_child,  ENTITY_NULL)
+    FIELD(entity_handle_t, prev_sibling, ENTITY_NULL)
+    FIELD(entity_handle_t, next_sibling, ENTITY_NULL)
+    FIELD(uint32_t,        child_cnt,    0)
+COMP_END(hierarchy)
