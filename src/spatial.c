@@ -128,8 +128,8 @@ res_t spatial_grid2d_init(spatial_grid2d_t *grid, float cell_sz, uint32_t bucket
 }
 
 res_t spatial_grid2d_build(spatial_grid2d_t *grid, const spatial_entity2d_t *ents, uint32_t ent_cnt, arena_t *scratch) {
-    ASSERT(grid, "Attempted to build with NULL grid (ents: %p, ent_cnt: %" PRIu32 ", scratch: %p)", ents, ent_cnt, scratch);
-    ASSERT(scratch, "Attempted to build with NULL scratch (grid: %p, ents: %p, ent_cnt: %" PRIu32 ")", grid, ents, ent_cnt);
+    ASSERT(grid, "Attempted to build with NULL grid (ents: %p, ent_cnt: %" PRIu32 ", scratch: %p)",                  (void *)ents, ent_cnt, (void *)scratch);
+    ASSERT(scratch, "Attempted to build with NULL scratch (grid: %p, ents: %p, ent_cnt: %" PRIu32 ")", (void *)grid, (void *)ents, ent_cnt);
     if   (!grid || !scratch) return EINVAL;
 
     if (ent_cnt == 0 || !ents) {
@@ -191,8 +191,8 @@ res_t spatial_grid2d_build(spatial_grid2d_t *grid, const spatial_entity2d_t *ent
 }
 
 res_t spatial_grid2d_build_from_ecs(spatial_grid2d_t *grid, ecs_world_t *world, arena_t *scratch) {
-    ASSERT(grid,    "Attempted to build 2D grid from ECS with NULL grid (world: %p, scratch: %p)", world, scratch);
-    ASSERT(scratch, "Attempted to build 2D grid from ECS with NULL scratch (grid: %p, world: %p)", grid, world);
+    ASSERT(grid,    "Attempted to build 2D grid from ECS with NULL grid (world: %p, scratch: %p)", (void *)world, (void *)scratch);
+    ASSERT(scratch, "Attempted to build 2D grid from ECS with NULL scratch (grid: %p, world: %p)", (void *)grid,  (void *)world);
     if   (!grid || !scratch) return EINVAL;
 
     /* if world == NULL && s_active_world == NULL return to avoid assertion */
@@ -267,8 +267,8 @@ res_t spatial_grid2d_build_from_ecs(spatial_grid2d_t *grid, ecs_world_t *world, 
 }
 
 uint32_t spatial_query_aabb2d(const spatial_grid2d_t *grid, aabb2f box, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch) {
-    ASSERT(grid,     "Attempted to query AABB with NULL grid (box: " FMT_AABB2F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)", ARG_AABB2F(box), mask,            out_ents, max_out,  scratch);
-    ASSERT(out_ents, "Attempted to query with NULL out_ents (grid: %p, box: " FMT_AABB2F ", mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",      grid,            ARG_AABB2F(box), mask,     max_out,  scratch);
+    ASSERT(grid,     "Attempted to query AABB with NULL grid (box: " FMT_AABB2F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)",               ARG_AABB2F(box), mask, (void *)out_ents, max_out,  (void *)scratch);
+    ASSERT(out_ents, "Attempted to query with NULL out_ents (grid: %p, box: " FMT_AABB2F ", mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",      (void *)grid, ARG_AABB2F(box), mask,                   max_out,  (void *)scratch);
     if (!grid || !out_ents || !max_out || !grid->entity_cnt || !grid->cell_offs || !grid->entries) return 0;
 
     uint64_t stack_buf[SPATIAL_STACK_WORDS];
@@ -309,9 +309,9 @@ done:
 
 
 uint32_t spatial_query_radius2d(const spatial_grid2d_t *grid, vec2f center, float radius, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch) {
-    ASSERT(grid,     "Attempted to query radius with NULL grid (center: " FMT_VEC2F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)",                    ARG_VEC2F(center), radius, mask, out_ents, max_out, scratch);
-    ASSERT(out_ents, "Attempted to query radius with NULL out_ents (grid: %p, center: " FMT_VEC2F ", radius: %.2f, mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",              grid, ARG_VEC2F(center), radius, mask,           max_out, scratch);
-    ASSERT(radius >= 0.0f, "Attempted to query with radius < 0.0f (grid: %p, center: " FMT_VEC2F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)", grid, ARG_VEC2F(center), radius, mask, out_ents, max_out, scratch);
+    ASSERT(grid,     "Attempted to query radius with NULL grid (center: " FMT_VEC2F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)",                            ARG_VEC2F(center), radius, mask, (void *)out_ents, max_out, (void *)scratch);
+    ASSERT(out_ents, "Attempted to query radius with NULL out_ents (grid: %p, center: " FMT_VEC2F ", radius: %.2f, mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",              (void *)grid, ARG_VEC2F(center), radius, mask,                   max_out, (void *)scratch);
+    ASSERT(radius >= 0.0f, "Attempted to query with radius < 0.0f (grid: %p, center: " FMT_VEC2F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)", (void *)grid, ARG_VEC2F(center), radius, mask, (void *)out_ents, max_out, (void *)scratch);
     if (!grid || !out_ents || !max_out || radius < 0.0f || !grid->entity_cnt || !grid->entries || !grid->cell_offs || !grid->entities) return 0;
 
     uint64_t stack_buf[SPATIAL_STACK_WORDS];
@@ -351,8 +351,8 @@ done:
 }
 
 uint32_t spatial_query_point2d(const spatial_grid2d_t *grid, vec2f point, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out) {
-    ASSERT(grid, "Attempted to query point with NULL grid (point: " FMT_VEC2F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ")",     ARG_VEC2F(point), mask,             out_ents, max_out);
-    ASSERT(out_ents, "Attempted to query point with NULL out_ents (grid: %p, point: " FMT_VEC2F ", mask: %" PRIu32 ", max_out: %" PRIu32 ")", grid,             ARG_VEC2F(point), mask,     max_out);
+    ASSERT(grid, "Attempted to query point with NULL grid (point: " FMT_VEC2F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ")",     ARG_VEC2F(point), mask,             (void *)out_ents, max_out);
+    ASSERT(out_ents, "Attempted to query point with NULL out_ents (grid: %p, point: " FMT_VEC2F ", mask: %" PRIu32 ", max_out: %" PRIu32 ")", (void *)grid,     ARG_VEC2F(point), mask,             max_out);
     if (!grid || !out_ents || !max_out || !grid->entity_cnt || !grid->entries || !grid->cell_offs || !grid->entities) return 0;
 
     int32_t  cx          = _world_to_cell(point.x, grid->inv_cell_sz);
@@ -403,8 +403,8 @@ res_t spatial_grid3d_init(spatial_grid3d_t *grid, float cell_sz, uint32_t bucket
 }
 
 res_t spatial_grid3d_build(spatial_grid3d_t *grid, const spatial_entity3d_t *ents, uint32_t ent_cnt, arena_t *scratch) {
-    ASSERT(grid, "Attempted to build with NULL grid (ents: %p, ent_cnt: %" PRIu32 ", scratch: %p)", ents, ent_cnt, scratch);
-    ASSERT(scratch, "Attempted to build with NULL scratch (grid: %p, ents: %p, ent_cnt: %" PRIu32 ")", grid, ents, ent_cnt);
+    ASSERT(grid, "Attempted to build with NULL grid (ents: %p, ent_cnt: %" PRIu32 ", scratch: %p)",    (void *)ents, ent_cnt,      (void *)scratch);
+    ASSERT(scratch, "Attempted to build with NULL scratch (grid: %p, ents: %p, ent_cnt: %" PRIu32 ")", (void *)grid, (void *)ents, ent_cnt);
     if   (!grid || !scratch) return EINVAL;
 
     if (ent_cnt == 0 || !ents) {
@@ -468,8 +468,8 @@ res_t spatial_grid3d_build(spatial_grid3d_t *grid, const spatial_entity3d_t *ent
 }
 
 res_t spatial_grid3d_build_from_ecs(spatial_grid3d_t *grid, ecs_world_t *world, arena_t *scratch) {
-    ASSERT(grid,    "Attempted to build 3D grid from ECS with NULL grid (world: %p, scratch: %p)", world, scratch);
-    ASSERT(scratch, "Attempted to build 3D grid from ECS with NULL scratch (grid: %p, world: %p)", grid, world);
+    ASSERT(grid,    "Attempted to build 3D grid from ECS with NULL grid (world: %p, scratch: %p)", (void *)world, (void *)scratch);
+    ASSERT(scratch, "Attempted to build 3D grid from ECS with NULL scratch (grid: %p, world: %p)", (void *)grid,  (void *)world);
     if   (!grid || !scratch) return EINVAL;
 
     /* if world == NULL && s_active_world == NULL return to avoid assertion */
@@ -536,8 +536,8 @@ res_t spatial_grid3d_build_from_ecs(spatial_grid3d_t *grid, ecs_world_t *world, 
 }
 
 uint32_t spatial_query_aabb3d(const spatial_grid3d_t *grid, aabb3f box, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch) {
-    ASSERT(grid,     "Attempted to query AABB with NULL grid (box: " FMT_AABB3F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)", ARG_AABB3F(box), mask,            out_ents, max_out,  scratch);
-    ASSERT(out_ents, "Attempted to query with NULL out_ents (grid: %p, box: " FMT_AABB3F ", mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",      grid,            ARG_AABB3F(box), mask,     max_out,  scratch);
+    ASSERT(grid,     "Attempted to query AABB with NULL grid (box: " FMT_AABB3F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)", ARG_AABB3F(box), mask,            (void *)out_ents, max_out,  (void *)scratch);
+    ASSERT(out_ents, "Attempted to query with NULL out_ents (grid: %p, box: " FMT_AABB3F ", mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",      (void *)grid,    ARG_AABB3F(box), mask,             max_out,  (void *)scratch);
     if (!grid || !out_ents || !max_out || !grid->entity_cnt || !grid->cell_offs || !grid->entries) return 0;
 
     uint64_t stack_buf[SPATIAL_STACK_WORDS];
@@ -579,9 +579,9 @@ done:
 
 
 uint32_t spatial_query_radius3d(const spatial_grid3d_t *grid, vec3f center, float radius, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out, arena_t *scratch) {
-    ASSERT(grid,     "Attempted to query radius with NULL grid (center: " FMT_VEC3F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)",                    ARG_VEC3F(center), radius, mask, out_ents, max_out, scratch);
-    ASSERT(out_ents, "Attempted to query radius with NULL out_ents (grid: %p, center: " FMT_VEC3F ", radius: %.2f, mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",              grid, ARG_VEC3F(center), radius, mask,           max_out, scratch);
-    ASSERT(radius >= 0.0f, "Attempted to query with radius < 0.0f (grid: %p, center: " FMT_VEC3F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)", grid, ARG_VEC3F(center), radius, mask, out_ents, max_out, scratch);
+    ASSERT(grid,     "Attempted to query radius with NULL grid (center: " FMT_VEC3F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)",                            ARG_VEC3F(center), radius, mask, (void *)out_ents, max_out, (void *)scratch);
+    ASSERT(out_ents, "Attempted to query radius with NULL out_ents (grid: %p, center: " FMT_VEC3F ", radius: %.2f, mask: %" PRIu32 ", max_out: %" PRIu32 ", scratch: %p)",              (void *)grid, ARG_VEC3F(center), radius, mask,                   max_out, (void *)scratch);
+    ASSERT(radius >= 0.0f, "Attempted to query with radius < 0.0f (grid: %p, center: " FMT_VEC3F ", radius: %.2f, mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ", scratch: %p)", (void *)grid, ARG_VEC3F(center), radius, mask, (void *)out_ents, max_out, (void *)scratch);
     if (!grid || !out_ents || !max_out || radius < 0.0f || !grid->entity_cnt || !grid->entries || !grid->cell_offs || !grid->entities) return 0;
 
     uint64_t stack_buf[SPATIAL_STACK_WORDS];
@@ -622,8 +622,8 @@ done:
 }
 
 uint32_t spatial_query_point3d(const spatial_grid3d_t *grid, vec3f point, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out) {
-    ASSERT(grid, "Attempted to query point with NULL grid (point: " FMT_VEC3F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ")",     ARG_VEC3F(point), mask,             out_ents, max_out);
-    ASSERT(out_ents, "Attempted to query point with NULL out_ents (grid: %p, point: " FMT_VEC3F ", mask: %" PRIu32 ", max_out: %" PRIu32 ")", grid,             ARG_VEC3F(point), mask,     max_out);
+    ASSERT(grid, "Attempted to query point with NULL grid (point: " FMT_VEC3F ", mask: %" PRIu32 ", out_ents: %p, max_out: %" PRIu32 ")",     ARG_VEC3F(point), mask,             (void *)out_ents, max_out);
+    ASSERT(out_ents, "Attempted to query point with NULL out_ents (grid: %p, point: " FMT_VEC3F ", mask: %" PRIu32 ", max_out: %" PRIu32 ")", (void *)grid,     ARG_VEC3F(point), mask,             max_out);
     if (!grid || !out_ents || !max_out || !grid->entity_cnt || !grid->entries || !grid->cell_offs || !grid->entities) return 0;
 
     int32_t  cx          = _world_to_cell(point.x, grid->inv_cell_sz);

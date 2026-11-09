@@ -210,6 +210,7 @@ static inline int _core_use_color(void) {
 #define LOG_CLR_GRN  "\033[1;32m"
 #define LOG_CLR_YLW  "\033[1;33m"
 
+__attribute__((format(printf, 7, 8)))
 static inline void _log(const char *color, const char *prefix, FILE *s,
                         const char *file, int line, const char *func, const char *fmt, ...) {
     // TODO: log into MCP logs

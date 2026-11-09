@@ -44,7 +44,7 @@ static inline void _ecs_world_pools_init(ecs_pool_t *pools, arena_t *perm) {
 
 ecs_world_t *ecs_world_create(arena_t *perm, arena_t *backup, arena_t *scratch) {
     ecs_world_t *world = (ecs_world_t *)arena_alloc(perm, sizeof(ecs_world_t));
-    ASSERT(world, "Failed to allocate world to perm arena (%p)", perm);
+    ASSERT(world, "Failed to allocate world to perm arena (%p)", (void *)perm);
     if   (!world) return NULL;
 
     memset(world, 0, sizeof(ecs_world_t));

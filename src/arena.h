@@ -82,7 +82,7 @@ Returns:
 */
 static inline res_t arena_init(arena_t *a, void *buf, size_t cap) {
     ASSERT(a,   "Attempted init on NULL arena (buf: %p, cap: %zu)",          buf, cap);
-    ASSERT(buf, "Attempted init arena with NULL buffer (a: %p, cap: %zu)",   a,   cap);
+    ASSERT(buf, "Attempted init arena with NULL buffer (a: %p, cap: %zu)",   (void *)a,   cap);
     if (!a || !buf) return EINVAL;
 
     uintptr_t raw     = (uintptr_t)buf;
@@ -118,7 +118,7 @@ static inline void *arena_alloc(arena_t *a, size_t sz) {
     size_t aligned_off = ALIGN_LINE_INT(a->off);
     size_t aligned_sz  = ALIGN_LINE_INT(sz);
 
-    ASSERT(aligned_off + aligned_sz <= a->cap, "Arena ran out of memory (a: %p, sz: %zu)", a, sz);
+    ASSERT(aligned_off + aligned_sz <= a->cap, "Arena ran out of memory (a: %p, sz: %zu)", (void *)a, sz);
     if (aligned_off + aligned_sz > a->cap) return NULL;
 
     void *ret_ptr = (void *)((uintptr_t)a->buf + aligned_off);
@@ -139,8 +139,8 @@ Returns:
 ====================
 */
 static inline bool arena_has(arena_t *a, void *ptr, size_t sz) {
-    ASSERT(a,   "Attempted has check on NULL arena (ptr: %p, sz: %zu)",   ptr, sz);
-    ASSERT(ptr, "Attempted has check on NULL ptr   (arena: %p, sz: %zu)", a,   sz);
+    ASSERT(a,   "Attempted has check on NULL arena (ptr: %p, sz: %zu)",   ptr,         sz);
+    ASSERT(ptr, "Attempted has check on NULL ptr   (arena: %p, sz: %zu)", (void *)a,   sz);
     if (!a || !ptr) return false;
     return (uintptr_t)ptr       >= (uintptr_t)(a->buf) &&
           ((uintptr_t)ptr + sz) <= ((uintptr_t)a->buf + a->off);
