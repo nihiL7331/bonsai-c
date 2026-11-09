@@ -217,24 +217,25 @@ res_t spatial_grid2d_build_from_ecs(spatial_grid2d_t *grid, ecs_world_t *world, 
 
     for (uint32_t i = 0; i < view.cnt; ++i) {
         entity_handle_t ent   = view.ents[i];
-        const trans2d    *t   = ecs_get(ent, trans2d);
+        trans2d wt;
+        ecs_get_world_trans(ent, &wt);
         const collider2d *col = ecs_get(ent, collider2d);
 
-        vec2f pos  = vec2f(t->x, t->y);
+        vec2f pos  = vec2f(wt.x, wt.y);
         vec2f off  = vec2f_scale(vec2f(
             col->off_x,
             col->off_y
-        ), t->scale);
+        ), wt.scale);
         vec2f half = vec2f_abs(vec2f_scale(vec2f(
             col->half_x,
             col->half_y
-        ), t->scale));
+        ), wt.scale));
 
         vec2f center, extents;
 
-        if (t->rot != 0.0f) { /* if rotated, recalculate tight aabb */
-            float c = cosf(t->rot);
-            float s = sinf(t->rot);
+        if (wt.rot != 0.0f) { /* if rotated, recalculate tight aabb */
+            float c = cosf(wt.rot);
+            float s = sinf(wt.rot);
             /* center_x = x + off_x * scale * cos(theta) - off_y * scale * sin(theta) */
             /* center_y = y + off_x * scale * sin(theta) + off_y * scale * cos(theta) */
             vec2f rot_off = vec2f(
@@ -494,14 +495,15 @@ res_t spatial_grid3d_build_from_ecs(spatial_grid3d_t *grid, ecs_world_t *world, 
 
     for (uint32_t i = 0; i < view.cnt; ++i) {
         entity_handle_t   ent = view.ents[i];
-        const trans3d    *t   = ecs_get(ent, trans3d);
+        trans3d wt;
+        ecs_get_world_trans(ent, &wt);
         const collider3d *col = ecs_get(ent, collider3d);
 
-        vec3f pos   = vec3f(t->x, t->y, t->z);
-        vec3f scale = vec3f(t->scale_x, t->scale_y, t->scale_z);
+        vec3f pos   = vec3f(wt.x, wt.y, wt.z);
+        vec3f scale = vec3f(wt.scale_x, wt.scale_y, wt.scale_z);
         vec3f off   = vec3f_mul(vec3f(col->off_x, col->off_y, col->off_z), scale);
 
-        quatf q = quatf(t->qx, t->qy, t->qz, t->qw);
+        quatf q = quatf(wt.qx, wt.qy, wt.qz, wt.qw);
         mat3f r = quatf_to_mat3f(q);
 
         vec3f rot_off = vec3f(

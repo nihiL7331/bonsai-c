@@ -15,6 +15,7 @@ Features:
 
 #include "arena.h"
 #include "core.h"
+#include "gmath.h"
 #include "reflect.h"
 
 #include <stdbool.h>
@@ -31,12 +32,9 @@ Layout:
 - bits  0..15: 16-bit entity index       (`entity_idx`),   max  `ECS_MAX_ENTITIES` (65535)
 ====================
 */
-typedef uint64_t entity_handle_t;
 
 #define ECS_MAX_ENTITIES  65535U
-
 #define ECS_NULL_IDX      0xFFFFU
-#define ENTITY_NULL       ((entity_handle_t)0ULL)
 #define ENTITY_FLAG_DEAD  (1U << 0)
 
 #define ENTITY_GEN_MASK   0xFFFFFFFF00000000ULL
@@ -442,3 +440,67 @@ void  ecs_del_raw(entity_handle_t e, comp_id_t id);
 #define ecs_has(entity_handle, type)               ecs_has_raw((entity_handle), COMP_##type)
 #define ecs_add(entity_handle, type, val) ((type *)ecs_add_raw((entity_handle), COMP_##type, (val)))
 #define ecs_del(entity_handle, type)               ecs_del_raw((entity_handle), COMP_##type)
+
+/* ============================================================================================== */
+/* >HIERARCHY API                                                                                 */
+/* ============================================================================================== */
+
+/*
+====================
+ecs_set_parent
+
+Attaches `child` as a direct child of `parent` in the scene forest.
+If `parent == ENTITY_NULL`, detaches `child` via `ecs_remove_parent`.
+Lazily attaches `hierarchy` components to `child` and `parent` if not
+already owned. Walks `parent`s ancestor chain to reject cycles.
+If `child` already has a parent, unlinks it from the previous parent first.
+Asserts valid world and living handles in debug, returns result code in release.
+
+Returns:
+- `OK`     on successful parenting or no-op.
+- `EINVAL` if active world is `NULL`, `child` or `parent` is dead, `child == parent`,
+           or `child` is an ancestor of `parent` (cycle detected).
+- `EOOM`   if the `hierarchy` component pool is exhausted.
+====================
+*/
+res_t ecs_set_parent(entity_handle_t child, entity_handle_t parent);
+
+/*
+====================
+ecs_remove_parent
+
+Detaches `child` from its current parent so `child` becomes an
+independent root of its own subtree (preserving all descendants
+of `child`). No-op returning `OK` if `child` is already unparented.
+Asserts valid world and living handle in debug, returns result
+code in release.
+
+Returns:
+- `OK`     on successful detachment or if already unparented.
+- `EINVAL` if active world is `NULL` or `child` is dead.
+====================
+*/
+res_t ecs_remove_parent(entity_handle_t child);
+
+bool ecs_get_world_trans2d(entity_handle_t e, trans2d *out);
+bool ecs_get_world_trans3d(entity_handle_t e, trans3d *out);
+
+/*
+====================
+ecs_get_world_trans
+
+Resolves the world-space transform for entity `e` into `*out`.
+If `e` is unparented, copies its `trans` directly.
+If `e` is parented, walks up the ancestor chain and folds parent
+transforms top-down (skipping organizational ancestor nodes that
+do not own a transform).
+
+Returns:
+- `true`  if `e` is alive and owns a transform.
+- `false` otherwise.
+====================
+*/
+#define ecs_get_world_trans(e, out) _Generic((out),                                                \
+    trans2d *: ecs_get_world_trans2d,                                                              \
+    trans3d *: ecs_get_world_trans3d                                                               \
+    )((e), (out))

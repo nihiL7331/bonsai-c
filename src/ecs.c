@@ -188,6 +188,58 @@ static inline void _ecs_pool_remove(ecs_world_t *world, uint16_t e_idx, comp_id_
     p->cnt--;
 }
 
+/* Unlinks a child node `h` from its parents sibling list */
+static inline void _ecs_hierarchy_unlink_parent(ecs_world_t *world, hierarchy *h) {
+    if (!h || h->parent == ENTITY_NULL) return;
+
+    if (h->prev_sibling != ENTITY_NULL && ecs_has(h->prev_sibling, hierarchy))
+        ecs_get_fast(world, h->prev_sibling, hierarchy)->next_sibling = h->next_sibling;
+    else if (ecs_has(h->parent, hierarchy))
+        ecs_get_fast(world, h->parent, hierarchy)->first_child = h->next_sibling;
+
+    if (h->next_sibling != ENTITY_NULL && ecs_has(h->next_sibling, hierarchy))
+        ecs_get_fast(world, h->next_sibling, hierarchy)->prev_sibling = h->prev_sibling;
+
+    if (ecs_has(h->parent, hierarchy)) {
+        hierarchy *hp = ecs_get_fast(world, h->parent, hierarchy);
+        if (hp->child_cnt > 0U) hp->child_cnt--;
+    }
+
+    h->parent       = ENTITY_NULL;
+    h->prev_sibling = ENTITY_NULL;
+    h->next_sibling = ENTITY_NULL;
+}
+
+static void _ecs_destroy_recursive(ecs_world_t *world, entity_handle_t e) {
+    if (!ecs_is_alive(e)) return;
+
+    if (ecs_has(e, hierarchy)) {
+        hierarchy      *h     = ecs_get_fast(world, e, hierarchy);
+        entity_handle_t child = h->first_child;
+        h->first_child        = ENTITY_NULL;
+        h->child_cnt          = 0U;
+
+        while (child != ENTITY_NULL) {
+            entity_handle_t next = ENTITY_NULL;
+
+            if (ecs_has(child, hierarchy)) {
+                hierarchy *hc    = ecs_get_fast(world, child, hierarchy);
+                next             = hc->next_sibling;
+                hc->parent       = ENTITY_NULL;
+                hc->prev_sibling = ENTITY_NULL;
+                hc->next_sibling = ENTITY_NULL;
+            }
+
+            _ecs_destroy_recursive(world, child);
+            child = next;
+        }
+    }
+
+    uint16_t idx           = entity_idx(e);
+    world->mgr.flags[idx] |= ENTITY_FLAG_DEAD;
+    _ecs_cmd_push((ecs_cmd_t){ .type = ECS_CMD_DESTROY_ENT, .ent = e, .comp = 0 });
+}
+
 entity_handle_t ecs_spawn(void) {
     ecs_world_t *world = ecs_get_world();
     ASSERT(world, "Attempted to spawn with NULL active world");
@@ -233,10 +285,10 @@ void ecs_destroy(entity_handle_t e) {
     ASSERT(ecs_is_alive(e), "Attempted to destroy a dead entity (%" PRIu64 ")",          e);
     if (!world || !ecs_is_alive(e)) return;
 
-    uint16_t idx           = entity_idx(e);
-    world->mgr.flags[idx] |= ENTITY_FLAG_DEAD;
+    if (ecs_has(e, hierarchy))
+        _ecs_hierarchy_unlink_parent(world, ecs_get_fast(world, e, hierarchy));
 
-    _ecs_cmd_push((ecs_cmd_t){ .type = ECS_CMD_DESTROY_ENT, .ent = e, .comp = 0 });
+    _ecs_destroy_recursive(world, e);
 }
 
 bool ecs_is_alive(entity_handle_t e) {
@@ -405,4 +457,149 @@ void ecs_del_raw(entity_handle_t e, comp_id_t id) {
     if (!ecs_has_raw(e, id)) return;
 
     _ecs_cmd_push((ecs_cmd_t){ .type = ECS_CMD_DELETE_COMP, .ent = e, .comp = id });
+}
+
+/* ============================================================================================== */
+/* >HIERARCHY API                                                                                 */
+/* ============================================================================================== */
+
+res_t ecs_set_parent(entity_handle_t child, entity_handle_t parent) {
+    if (parent == ENTITY_NULL) return ecs_remove_parent(child);
+
+    ecs_world_t *world = ecs_get_world();
+    ASSERT(world,                "Attempted set_parent with NULL active world");
+    ASSERT(ecs_is_alive(child),  "Attempted set_parent on dead child (%" PRIu64 ")",  child);
+    ASSERT(ecs_is_alive(parent), "Attempted set_parent on dead parent (%" PRIu64 ")", parent);
+    if   (!world || !ecs_is_alive(child) || !ecs_is_alive(parent) || child == parent) return EINVAL;
+
+    /* verify `child` is not ancestor of `parent` */
+    entity_handle_t anc = parent;
+    while (anc != ENTITY_NULL && ecs_has(anc, hierarchy)) {
+        anc = ecs_get_fast(world, anc, hierarchy)->parent;
+        if (anc == child) return EINVAL;
+    }
+
+    if (!ecs_has(child, hierarchy)  && !ecs_add(child, hierarchy, NULL))  return EOOM;
+    if (!ecs_has(parent, hierarchy) && !ecs_add(parent, hierarchy, NULL)) return EOOM;
+
+    hierarchy *hc = ecs_get_fast(world, child,  hierarchy);
+    hierarchy *hp = ecs_get_fast(world, parent, hierarchy);
+
+    if (hc->parent == parent) return OK;
+
+    if (hc->parent != ENTITY_NULL)
+        _ecs_hierarchy_unlink_parent(world, hc);
+
+    entity_handle_t old_first = hp->first_child;
+    if (old_first != ENTITY_NULL && ecs_has(old_first, hierarchy))
+        ecs_get_fast(world, old_first, hierarchy)->prev_sibling = child;
+
+    hc->parent       = parent;
+    hc->prev_sibling = ENTITY_NULL;
+    hc->next_sibling = old_first;
+    hp->first_child  = child;
+    hp->child_cnt++;
+
+    return OK;
+}
+
+res_t ecs_remove_parent(entity_handle_t child) {
+    ecs_world_t *world = ecs_get_world();
+    ASSERT(world,               "Attempted remove_parent with NULL active world");
+    ASSERT(ecs_is_alive(child), "Attempted remove_parent on dead child (%" PRIu64 ")", child);
+    if   (!world || !ecs_is_alive(child)) return EINVAL;
+
+    if (ecs_has(child, hierarchy))
+        _ecs_hierarchy_unlink_parent(world, ecs_get_fast(world, child, hierarchy));
+
+    return OK;
+}
+
+static inline trans2d _ecs_combine_trans2d(trans2d p, trans2d l) {
+    vec2f ls = vec_scale(vec2f(l.x, l.y), p.scale);
+
+    if (p.rot != 0.0f) {
+        float c = cosf(p.rot), s = sinf(p.rot);
+        ls      = vec2f(ls.x * c - ls.y * s, ls.x * s + ls.y * c);
+    }
+
+    return (trans2d){
+        .x     = p.x     + ls.x,
+        .y     = p.y     + ls.y,
+        .rot   = p.rot   + l.rot,
+        .scale = p.scale * l.scale,
+    };
+}
+
+static inline quatf _ecs_trans3d_quat(trans3d t) {
+    if (t.qx == 0.0f && t.qy == 0.0f && t.qz == 0.0f && t.qw == 0.0f)
+        return quatf_id();
+    return quatf(t.qx, t.qy, t.qz, t.qw);
+}
+
+static inline trans3d _ecs_combine_trans3d(trans3d p, trans3d l) {
+    quatf pq     = _ecs_trans3d_quat(p);
+    quatf lq     = _ecs_trans3d_quat(l);
+    vec3f scaled = vec_mul(vec3f(l.x, l.y, l.z), vec3f(p.scale_x, p.scale_y, p.scale_z));
+    vec3f rot_p  = quatf_mul_vec3(pq, scaled);
+    quatf wq     = quatf_mul(pq, lq);
+
+    return (trans3d){
+        .x       = p.x       + rot_p.x,
+        .y       = p.y       + rot_p.y,
+        .z       = p.z       + rot_p.z,
+        .qx      = wq.x,
+        .qy      = wq.y,
+        .qz      = wq.z,
+        .qw      = wq.w,
+        .scale_x = p.scale_x * l.scale_x,
+        .scale_y = p.scale_y * l.scale_y,
+        .scale_z = p.scale_z * l.scale_z,
+    };
+}
+
+bool ecs_get_world_trans2d(entity_handle_t e, trans2d *out) {
+    ecs_world_t *world = ecs_get_world();
+    if (!world || !out || !ecs_has(e, trans2d)) return false;
+
+    const trans2d *chain[64];
+    uint32_t       depth = 0U;
+
+    entity_handle_t cur = e;
+    while (cur != ENTITY_NULL && depth < ARR_CNT(chain)) {
+        if (ecs_has(cur, trans2d)) chain[depth++] = ecs_get_fast(world, cur, trans2d);
+
+        if (!ecs_has(cur, hierarchy)) break;
+        cur = ecs_get_fast(world, cur, hierarchy)->parent;
+    }
+
+    trans2d acc = *chain[depth - 1U];
+    for (int32_t i = (int32_t)depth - 2; i >= 0; --i) acc = _ecs_combine_trans2d(acc, *chain[i]);
+
+    *out = acc;
+
+    return true;
+}
+
+bool ecs_get_world_trans3d(entity_handle_t e, trans3d *out) {
+    ecs_world_t *world = ecs_get_world();
+    if (!world || !out || !ecs_has(e, trans3d)) return false;
+
+    const trans3d *chain[64];
+    uint32_t       depth = 0U;
+
+    entity_handle_t cur = e;
+    while (cur != ENTITY_NULL && depth < ARR_CNT(chain)) {
+        if (ecs_has(cur, trans3d)) chain[depth++] = ecs_get_fast(world, cur, trans3d);
+
+        if (!ecs_has(cur, hierarchy)) break;
+        cur = ecs_get_fast(world, cur, hierarchy)->parent;
+    }
+
+    trans3d acc = *chain[depth - 1U];
+    for (int32_t i = (int32_t)depth - 2; i >= 0; --i) acc = _ecs_combine_trans3d(acc, *chain[i]);
+
+    *out = acc;
+
+    return true;
 }
