@@ -1,6 +1,6 @@
 CC           ?= gcc
-CFLAGS       ?= -Wall -Wextra -Werror -pedantic -std=c11 -O2 -Isrc
-CFLAGS_DEBUG ?= -Wall -Wextra -Werror -pedantic -std=c11 -O0 -Isrc -g -DDEBUG
+CFLAGS       ?= -Wall -Wextra -Werror -pedantic -std=c11 -O2 -Isrc -isystem vendor
+CFLAGS_DEBUG ?= -Wall -Wextra -Werror -pedantic -std=c11 -O0 -Isrc -isystem vendor -g -DDEBUG -fsanitize=address,undefined
 
 TEST_DIR  = tests
 BUILD_DIR = build
