@@ -384,6 +384,165 @@ int main(void) {
         TEST_ASSERT(ecs_world_rollback() == ENOTFND, "rollback without snapshot must return ENOTFND");
     } TEST_CASE_END();
 
+    TEST_CASE("ecs_hierarchy_parent", "attaches and detaches children in doubly-linked list") {
+        reset_world();
+        entity_handle_t root = ecs_spawn();
+        entity_handle_t c1   = ecs_spawn();
+        entity_handle_t c2   = ecs_spawn();
+
+        TEST_ASSERT(!ecs_has(root, hierarchy),          "unparented entity must not own hierarchy");
+        TEST_ASSERT(ecs_set_parent(c1, root) == OK,     "failed to parent c1 to root");
+        TEST_ASSERT(ecs_set_parent(c2, root) == OK,     "failed to parent c2 to root");
+        TEST_ASSERT(ecs_has(root, hierarchy),           "root must lazily acquire hierarchy");
+        TEST_ASSERT(ecs_has(c1,   hierarchy),           "c1 must lazily acquire hierarchy");
+
+        const hierarchy *hr  = ecs_get(root, hierarchy);
+        const hierarchy *hc1 = ecs_get(c1,   hierarchy);
+        const hierarchy *hc2 = ecs_get(c2,   hierarchy);
+
+        TEST_ASSERT(hr->child_cnt     == 2U,          "expected root child_cnt == 2");
+        TEST_ASSERT(hr->first_child   == c2,          "expected c2 at head of child list");
+        TEST_ASSERT(hc2->parent       == root,        "c2 parent mismatch");
+        TEST_ASSERT(hc2->prev_sibling == ENTITY_NULL, "c2 prev_sibling must be NULL");
+        TEST_ASSERT(hc2->next_sibling == c1,          "c2 next_sibling must be c1");
+        TEST_ASSERT(hc1->parent       == root,        "c1 parent mismatch");
+        TEST_ASSERT(hc1->prev_sibling == c2,          "c1 prev_sibling must be c2");
+        TEST_ASSERT(hc1->next_sibling == ENTITY_NULL, "c1 next_sibling must be NULL");
+
+        /* detach head child (c2) via ecs_remove_parent */
+        TEST_ASSERT(ecs_remove_parent(c2) == OK,        "failed to detach c2");
+        TEST_ASSERT(hr->child_cnt         == 1U,        "expected root child_cnt == 1");
+        TEST_ASSERT(hr->first_child       == c1,        "expected c1 to become first_child");
+        TEST_ASSERT(hc1->prev_sibling == ENTITY_NULL,   "c1 prev_sibling must be cleared");
+        TEST_ASSERT(hc2->parent       == ENTITY_NULL,   "c2 parent must be cleared");
+
+        /* detach remaining child (c1) via ecs_set_parent(c1, ENTITY_NULL) */
+        TEST_ASSERT(ecs_set_parent(c1, ENTITY_NULL) == OK, "failed to detach c1 via NULL parent");
+        TEST_ASSERT(hr->child_cnt   == 0U,                 "expected root child_cnt == 0");
+        TEST_ASSERT(hr->first_child == ENTITY_NULL,        "expected root first_child == NULL");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_hierarchy_reparent", "moves entire subtree between parents in O(1)") {
+        reset_world();
+        entity_handle_t root_a = ecs_spawn();
+        entity_handle_t root_b = ecs_spawn();
+        entity_handle_t branch = ecs_spawn();
+        entity_handle_t leaf   = ecs_spawn();
+
+        TEST_ASSERT(ecs_set_parent(branch, root_a) == OK, "parent branch -> root_a");
+        TEST_ASSERT(ecs_set_parent(leaf,   branch) == OK, "parent leaf -> branch");
+
+        /* move branch from root_a to root_b */
+        TEST_ASSERT(ecs_set_parent(branch, root_b) == OK, "reparent branch -> root_b");
+
+        TEST_ASSERT(ecs_get(root_a, hierarchy)->child_cnt   == 0U,          "root_a must have 0 children");
+        TEST_ASSERT(ecs_get(root_a, hierarchy)->first_child == ENTITY_NULL, "root_a first_child must be NULL");
+        TEST_ASSERT(ecs_get(root_b, hierarchy)->child_cnt   == 1U,          "root_b must have 1 child");
+        TEST_ASSERT(ecs_get(root_b, hierarchy)->first_child == branch,      "root_b first_child must be branch");
+        TEST_ASSERT(ecs_get(branch, hierarchy)->parent      == root_b,      "branch parent must be root_b");
+        TEST_ASSERT(ecs_get(leaf,   hierarchy)->parent      == branch,      "leaf must remain attached to branch");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_hierarchy_cycle", "rejects self-parenting and ancestor cycles") {
+        reset_world();
+        entity_handle_t a = ecs_spawn();
+        entity_handle_t b = ecs_spawn();
+        entity_handle_t c = ecs_spawn();
+
+        TEST_ASSERT(ecs_set_parent(b, a) == OK,     "b -> a must succeed");
+        TEST_ASSERT(ecs_set_parent(c, b) == OK,     "c -> b must succeed");
+
+        /* self-parenting and ancestor cycle attempts must return EINVAL */
+        TEST_ASSERT(ecs_set_parent(a, a) == EINVAL, "self-parenting must return EINVAL");
+        TEST_ASSERT(ecs_set_parent(a, b) == EINVAL, "2-node cycle (a -> b -> a) must return EINVAL");
+        TEST_ASSERT(ecs_set_parent(a, c) == EINVAL, "3-node cycle (a -> c -> b -> a) must return EINVAL");
+        TEST_ASSERT(ecs_get(a, hierarchy)->parent == ENTITY_NULL, "a must remain root after rejected cycles");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_hierarchy_cascade", "unlinks from parent and cascades destruction to descendants") {
+        ecs_world_t    *w      = reset_world();
+        entity_handle_t root   = ecs_spawn();
+        entity_handle_t branch = ecs_spawn();
+        entity_handle_t leaf1  = ecs_spawn();
+        entity_handle_t leaf2  = ecs_spawn();
+
+        ecs_set_parent(branch, root);
+        ecs_set_parent(leaf1,  branch);
+        ecs_set_parent(leaf2,  branch);
+
+        /* destroy middle node `branch`; root must stay alive with 0 children */
+        ecs_destroy(branch);
+
+        TEST_ASSERT(ecs_is_alive(root),    "root must survive child subtree destruction");
+        TEST_ASSERT(!ecs_is_alive(branch), "branch must be marked dead immediately");
+        TEST_ASSERT(!ecs_is_alive(leaf1),  "leaf1 must be marked dead via cascade");
+        TEST_ASSERT(!ecs_is_alive(leaf2),  "leaf2 must be marked dead via cascade");
+        TEST_ASSERT(ecs_get(root, hierarchy)->child_cnt   == 0U,          "root child_cnt must be 0");
+        TEST_ASSERT(ecs_get(root, hierarchy)->first_child == ENTITY_NULL, "root first_child must be NULL");
+
+        ecs_sync();
+        TEST_ASSERT(w->mgr.alive_cnt == 1U, "only root must remain alive after sync");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_world_trans2d", "accumulates 2D pos, rot, and scale down hierarchy") {
+        reset_world();
+        entity_handle_t root   = ecs_spawn();
+        entity_handle_t folder = ecs_spawn(); /* organizational node without trans2d */
+        entity_handle_t child  = ecs_spawn();
+
+        /* root at (10, 20), rotated +90 deg (PI/2), scale 2.0 */
+        trans2d tr = { .x = 10.0f, .y = 20.0f, .rot = 1.57079632679f, .scale = 2.0f };
+        /* child at local (3, 0), rot 0.5, scale 0.5 */
+        trans2d tc = { .x = 3.0f,  .y = 0.0f,  .rot = 0.5f,           .scale = 0.5f };
+
+        ecs_add(root,  trans2d, &tr);
+        ecs_add(child, trans2d, &tc);
+
+        ecs_set_parent(folder, root);
+        ecs_set_parent(child,  folder);
+
+        trans2d wt = {0};
+        TEST_ASSERT(ecs_get_world_trans(child, &wt), "ecs_get_world_trans2d failed");
+
+        /* local (3, 0) scaled by 2 -> (6, 0), rotated +90 deg -> (0, 6), + (10, 20) = (10, 26) */
+        TEST_ASSERT(ABS(wt.x     - 10.0f) < 1e-4f, "expected world x ~ 10.0, got %.4f", wt.x);
+        TEST_ASSERT(ABS(wt.y     - 26.0f) < 1e-4f, "expected world y ~ 26.0, got %.4f", wt.y);
+        TEST_ASSERT(ABS(wt.scale - 1.0f)  < 1e-4f, "expected world scale ~ 1.0, got %.4f", wt.scale);
+        TEST_ASSERT(ABS(wt.rot   - (tr.rot + tc.rot)) < 1e-4f, "world rot mismatch");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_world_trans3d", "accumulates 3D pos, quatf, and scale down hierarchy") {
+        reset_world();
+        entity_handle_t parent = ecs_spawn();
+        entity_handle_t child  = ecs_spawn();
+
+        /* 90 deg rotation around Z axis: q = (0, 0, sin(45 deg), cos(45 deg)) */
+        quatf   qz90 = quatf_axis_angle(vec3f(0.0f, 0.0f, 1.0f), 1.57079632679f);
+        trans3d tp   = {
+            .x = 5.0f, .y = 10.0f, .z = 15.0f,
+            .qx = qz90.x, .qy = qz90.y, .qz = qz90.z, .qw = qz90.w,
+            .scale_x = 2.0f, .scale_y = 2.0f, .scale_z = 3.0f,
+        };
+        trans3d tc = {
+            .x = 4.0f, .y = 0.0f, .z = 2.0f,
+            .qx = 0.0f, .qy = 0.0f, .qz = 0.0f, .qw = 1.0f,
+            .scale_x = 0.5f, .scale_y = 1.0f, .scale_z = 1.0f,
+        };
+
+        ecs_add(parent, trans3d, &tp);
+        ecs_add(child,  trans3d, &tc);
+        ecs_set_parent(child, parent);
+
+        trans3d wt = {0};
+        TEST_ASSERT(ecs_get_world_trans(child, &wt), "ecs_get_world_trans3d failed");
+
+        /* local (4, 0, 2) scaled by (2, 2, 3) -> (8, 0, 6), rot +90Z -> (0, 8, 6), + (5, 10, 15) = (5, 18, 21) */
+        TEST_ASSERT(ABS(wt.x       - 5.0f)  < 1e-4f, "expected world x ~ 5.0, got %.4f",  wt.x);
+        TEST_ASSERT(ABS(wt.y       - 18.0f) < 1e-4f, "expected world y ~ 18.0, got %.4f", wt.y);
+        TEST_ASSERT(ABS(wt.z       - 21.0f) < 1e-4f, "expected world z ~ 21.0, got %.4f", wt.z);
+        TEST_ASSERT(ABS(wt.scale_x - 1.0f)  < 1e-4f, "expected world scale_x ~ 1.0, got %.4f", wt.scale_x);
+    } TEST_CASE_END();
+
     ecs_set_world(NULL);
     arena_free_vm(&s_perm_arena);
     arena_free_vm(&s_backup_arena);
