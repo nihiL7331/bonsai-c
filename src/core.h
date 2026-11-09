@@ -16,13 +16,19 @@ debug-only assertions, fatal panics, and the global `res_t` status code enum.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#ifdef _WIN32
+    #include <io.h>
+    #define ISATTY_STDOUT() _isatty(_fileno(stdout))
+#else  /* !defined(_WIN32) */
+    #include <unistd.h>
+    #define ISATTY_STDOUT() isatty(STDOUT_FILENO)
+#endif /* !defined(_WIN32) */
 
 #if defined(__GNUC__) || defined(__clang__)
     #define TRAP() __builtin_trap()
-#else //  !defined(__GNUC__) && !defined(__clang__)
+#else  /* !defined(__GNUC__) && !defined(__clang__) */
     #define TRAP() (*(volatile int *)0 = 0)
-#endif // !defined(__GNUC__) && !defined(__clang__)
+#endif /* !defined(__GNUC__) && !defined(__clang__) */
 
 /* ============================================================================================== */
 /* >VARIADIC MACRO DISPATCH                                                                       */
@@ -199,7 +205,7 @@ static inline int _core_use_color(void) {
     static int cached = -1;
     if (cached < 0) {
         const char *no_color = getenv("NO_COLOR");
-        cached               = isatty(STDOUT_FILENO) && !(no_color && *no_color);
+        cached               = ISATTY_STDOUT() && !(no_color && *no_color);
     }
     return cached;
 }
