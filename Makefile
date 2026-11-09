@@ -32,7 +32,7 @@ lint:
 	done
 
 compdb: clean
-	bear -- $(MAKE) test
+	bear -- $(MAKE) $(TEST_BINS)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
