@@ -218,8 +218,8 @@ int main(void) {
         ecs_add(e3, sprite2d, NULL);
 
         ecs_view_t v = ecs_query_comp(trans2d);
-        TEST_ASSERT(v.cnt == 2U,                                "expected 2 matches, got %u", v.cnt);
-        TEST_ASSERT(v.rows[0].ent == e1 && v.rows[1].ent == e2, "matched entity mismatch");
+        TEST_ASSERT(v.cnt == 2U,                        "expected 2 matches, got %u", v.cnt);
+        TEST_ASSERT(v.ents[0] == e1 && v.ents[1] == e2, "matched entity mismatch");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_query_multi", "matches exact component intersection") {
@@ -238,9 +238,42 @@ int main(void) {
         ecs_view_t v2 = ecs_query_comp(trans2d, sprite2d);
         ecs_view_t v3 = ecs_query_comp(trans2d, sprite2d, rb2d);
 
-        TEST_ASSERT(v2.cnt == 2U,         "expected 2 matches for (trans2d, sprite2d), got %u", v2.cnt);
-        TEST_ASSERT(v3.cnt == 1U,         "expected 1 match for 3 comps, got %u",               v3.cnt);
-        TEST_ASSERT(v3.rows[0].ent == e2, "matched wrong entity");
+        TEST_ASSERT(v2.cnt == 2U,     "expected 2 matches for (trans2d, sprite2d), got %u", v2.cnt);
+        TEST_ASSERT(v3.cnt == 1U,     "expected 1 match for 3 comps, got %u",               v3.cnt);
+        TEST_ASSERT(v3.ents[0] == e2, "matched wrong entity");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_query_many", "supports >4 components and ecs_get_fast unpacking") {
+        ecs_world_t    *w  = reset_world();
+        entity_handle_t e1 = ecs_spawn();
+        entity_handle_t e2 = ecs_spawn();
+
+        /* e1 gets 5 components, e2 gets 6 components */
+        ecs_add(e1, trans2d,    NULL);
+        ecs_add(e1, sprite2d,   NULL);
+        ecs_add(e1, collider2d, NULL);
+        ecs_add(e1, rb2d,       NULL);
+        ecs_add(e1, tag,        NULL);
+
+        trans2d custom_t = { .x = 99.0f, .y = -42.0f, .rot = 0.5f, .scale = 2.0f };
+        ecs_add(e2, trans2d,    &custom_t);
+        ecs_add(e2, sprite2d,   NULL);
+        ecs_add(e2, collider2d, NULL);
+        ecs_add(e2, rb2d,       NULL);
+        ecs_add(e2, tag,        NULL);
+        ecs_add(e2, trans3d,    NULL);
+
+        ecs_view_t v5 = ecs_query_comp(trans2d, sprite2d, collider2d, rb2d, tag);
+        ecs_view_t v6 = ecs_query_comp(trans2d, sprite2d, collider2d, rb2d, tag, trans3d);
+
+        TEST_ASSERT(v5.cnt == 2U,     "expected 2 matches for 5-comp query, got %u", v5.cnt);
+        TEST_ASSERT(v6.cnt == 1U,     "expected 1 match for 6-comp query, got %u",   v6.cnt);
+        TEST_ASSERT(v6.ents[0] == e2, "6-comp query matched wrong entity");
+
+        const trans2d *fast_t = ecs_get_fast(w, v6.ents[0], trans2d);
+        TEST_ASSERT(fast_t != NULL,        "ecs_get_fast returned NULL");
+        TEST_ASSERT(fast_t->x == 99.0f,    "ecs_get_fast x mismatch");
+        TEST_ASSERT(fast_t->y == -42.0f,   "ecs_get_fast y mismatch");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_query_exclude", "filters out entities matching without_mask") {
@@ -254,12 +287,14 @@ int main(void) {
         ecs_add(e2, sprite2d, NULL);
         ecs_add(e2, rb2d,     NULL);
 
-        uint64_t with    = (1ULL << COMP_trans2d) | (1ULL << COMP_sprite2d);
-        uint64_t without = (1ULL << COMP_rb2d);
+        ecs_view_t v = ecs_query_mask(ecs_mask(trans2d, sprite2d), ecs_mask(rb2d));
+        TEST_ASSERT(v.cnt     == 1U, "expected 1 match for exclusion query, got %u", v.cnt);
+        TEST_ASSERT(v.ents[0] == e1, "exclusion query matched wrong entity");
 
-        ecs_view_t v = ecs_query_mask(with, without);
-        TEST_ASSERT(v.cnt         == 1U, "expected 1 match for exclusion query, got %u", v.cnt);
-        TEST_ASSERT(v.rows[0].ent == e1, "exclusion query matched wrong entity");
+        /* overlapping with and without mask must short-circuit to empty */
+        ecs_view_t v_conflict = ecs_query_mask(ecs_mask(trans2d, sprite2d), ecs_mask(sprite2d));
+        TEST_ASSERT(v_conflict.cnt  == 0U,   "conflicting masks must yield 0 matches");
+        TEST_ASSERT(v_conflict.ents == NULL, "conflicting masks must yield NULL ents");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_query_dead", "skips entities marked dead before sync") {
@@ -272,8 +307,8 @@ int main(void) {
 
         ecs_destroy(e1);
         ecs_view_t v = ecs_query_comp(trans2d);
-        TEST_ASSERT(v.cnt         == 1U, "query must exclude dead e1, got %u", v.cnt);
-        TEST_ASSERT(v.rows[0].ent == e2, "query matched wrong surviving entity");
+        TEST_ASSERT(v.cnt     == 1U, "query must exclude dead e1, got %u", v.cnt);
+        TEST_ASSERT(v.ents[0] == e2, "query matched wrong surviving entity");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_find_tag_found", "returns handle for matching tag string") {
