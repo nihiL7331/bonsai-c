@@ -43,7 +43,7 @@ int main(void) {
     } TEST_CASE_END();
 
     TEST_CASE("arena_alloc", "ensures allocs dont overlap") {
-        uint8_t buf[CACHE_LINE_SZ * 2];
+        _Alignas(CACHE_LINE_SZ) uint8_t buf[CACHE_LINE_SZ * 2];
         arena_t a;
         arena_init(&a, buf, sizeof(buf));
 
