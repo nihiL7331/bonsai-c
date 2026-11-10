@@ -384,7 +384,7 @@ int main(void) {
         TEST_ASSERT(ecs_world_rollback() == ENOTFND, "rollback without snapshot must return ENOTFND");
     } TEST_CASE_END();
 
-    TEST_CASE("ecs_hierarchy_parent", "attaches and detaches children in doubly-linked list") {
+    TEST_CASE("ecs_hier_parent", "attaches and detaches children in list") {
         reset_world();
         entity_handle_t root = ecs_spawn();
         entity_handle_t c1   = ecs_spawn();
@@ -422,7 +422,7 @@ int main(void) {
         TEST_ASSERT(hr->first_child == ENTITY_NULL,        "expected root first_child == NULL");
     } TEST_CASE_END();
 
-    TEST_CASE("ecs_hierarchy_reparent", "moves entire subtree between parents in O(1)") {
+    TEST_CASE("ecs_hier_reparent", "moves entire subtree between parents in O(1)") {
         reset_world();
         entity_handle_t root_a = ecs_spawn();
         entity_handle_t root_b = ecs_spawn();
@@ -443,7 +443,7 @@ int main(void) {
         TEST_ASSERT(ecs_get(leaf,   hierarchy)->parent      == branch,      "leaf must remain attached to branch");
     } TEST_CASE_END();
 
-    TEST_CASE("ecs_hierarchy_cycle", "rejects self-parenting and ancestor cycles") {
+    TEST_CASE("ecs_hier_cycle", "rejects self-parenting and ancestor cycles") {
         reset_world();
         entity_handle_t a = ecs_spawn();
         entity_handle_t b = ecs_spawn();
@@ -459,7 +459,7 @@ int main(void) {
         TEST_ASSERT(ecs_get(a, hierarchy)->parent == ENTITY_NULL, "a must remain root after rejected cycles");
     } TEST_CASE_END();
 
-    TEST_CASE("ecs_hierarchy_cascade", "unlinks from parent and cascades destruction to descendants") {
+    TEST_CASE("ecs_hier_cascade", "unlinks and cascades destruction") {
         ecs_world_t    *w      = reset_world();
         entity_handle_t root   = ecs_spawn();
         entity_handle_t branch = ecs_spawn();
@@ -511,7 +511,7 @@ int main(void) {
         TEST_ASSERT(ABS(wt.rot   - (tr.rot + tc.rot)) < 1e-4f, "world rot mismatch");
     } TEST_CASE_END();
 
-    TEST_CASE("ecs_world_trans3d", "accumulates 3D pos, quatf, and scale down hierarchy") {
+    TEST_CASE("ecs_world_trans3d", "accumulates 3D pos, quatf, and scale down hier") {
         reset_world();
         entity_handle_t parent = ecs_spawn();
         entity_handle_t child  = ecs_spawn();
