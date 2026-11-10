@@ -114,6 +114,36 @@ static inline uint32_t _spatial_hash3d(int32_t cx, int32_t cy, int32_t cz, uint3
 /* >2D LOGIC IMPL                                                                                 */
 /* ============================================================================================== */
 
+aabb2f spatial_calc_aabb2d(entity_handle_t ent, const collider2d *col) {
+    trans2d wt;
+    ecs_get_world_trans(ent, &wt);
+
+    vec2f pos  = vec2f(wt.x, wt.y);
+    vec2f off  = vec_scale(vec2f(col->off_x, col->off_y), wt.scale);
+
+    vec2f center, extents;
+    if (wt.rot != 0.0f) {
+        float c = cosf(wt.rot), s = sinf(wt.rot);
+        center  = vec_add(pos, vec2f(off.x * c - off.y * s, off.x * s + off.y * c));
+    } else center = vec_add(pos, off);
+
+    if (col->shape == COLLIDER_BOX) {
+        vec2f half = vec_abs(vec_scale(vec2f(col->half_x, col->half_y), wt.scale));
+        if (wt.rot != 0.0f) {
+            float c = cosf(wt.rot), s = sinf(wt.rot);
+            extents = vec2f(half.x * ABS(c) + half.y * ABS(s), half.x * ABS(s) + half.y * ABS(c));
+        } else extents = half;
+    } else if (col->shape == COLLIDER_CIRCLE) {
+        extents = vec2f_splat(ABS(col->half_x * wt.scale));
+    } else {
+        float rad = ABS(col->half_x * wt.scale);
+        float hh  = MAX(ABS(col->half_y * wt.scale), rad);
+        extents   = vec2f(rad, hh);
+    }
+
+    return aabb_center_half(center, extents);
+}
+
 res_t spatial_grid2d_init(spatial_grid2d_t *grid, float cell_sz, uint32_t bucket_cnt) {
     ASSERT(grid,                                                "Attempted to initialize a NULL spatial_grid2d");
     ASSERT(bucket_cnt == 0 || IS_POW2(bucket_cnt), "bucket_cnt must be a power of two (or 0 for default)");
@@ -217,48 +247,11 @@ res_t spatial_grid2d_build_from_ecs(spatial_grid2d_t *grid, ecs_world_t *world, 
 
     for (uint32_t i = 0; i < view.cnt; ++i) {
         entity_handle_t ent   = view.ents[i];
-        trans2d wt;
-        ecs_get_world_trans(ent, &wt);
         const collider2d *col = ecs_get(ent, collider2d);
 
-        vec2f pos  = vec2f(wt.x, wt.y);
-        vec2f off  = vec2f_scale(vec2f(
-            col->off_x,
-            col->off_y
-        ), wt.scale);
-        vec2f half = vec2f_abs(vec2f_scale(vec2f(
-            col->half_x,
-            col->half_y
-        ), wt.scale));
-
-        vec2f center, extents;
-
-        if (wt.rot != 0.0f) { /* if rotated, recalculate tight aabb */
-            float c = cosf(wt.rot);
-            float s = sinf(wt.rot);
-            /* center_x = x + off_x * scale * cos(theta) - off_y * scale * sin(theta) */
-            /* center_y = y + off_x * scale * sin(theta) + off_y * scale * cos(theta) */
-            vec2f rot_off = vec2f(
-                off.x * c - off.y * s,
-                off.x * s + off.y * c
-            );
-            center = vec2f_add(pos, rot_off);
-            /* extents_x = half_x * |cos(theta)| + half_y * |sin(theta)| */
-            /* extents_y = half_x * |sin(theta)| + half_y * |cos(theta)| */
-            extents = vec2f(
-                half.x * ABS(c) + half.y * ABS(s),
-                half.x * ABS(s) + half.y * ABS(c)
-            );
-        } else {
-            center  = vec_add(pos, off);
-            extents = half;
-        }
-
-        /* tight aabb = [center_x - extents_x, center_y - extents_y] -> */
-        /*              [center_x + extents_x, center_y + extents_y]    */
         ents[i] = (spatial_entity2d_t){
             .ent    = ent,
-            .bounds = aabb_center_half(center, extents),
+            .bounds = spatial_calc_aabb2d(ent, col),
             .mask   = col->mask,
         };
     }
@@ -390,6 +383,40 @@ uint32_t spatial_query_point2d(const spatial_grid2d_t *grid, vec2f point, uint32
 /* >3D LOGIC IMPL                                                                                 */
 /* ============================================================================================== */
 
+aabb3f spatial_calc_aabb3d(entity_handle_t ent, const collider3d *col) {
+    trans3d wt;
+    ecs_get_world_trans(ent, &wt);
+
+    vec3f pos   = vec3f(wt.x, wt.y, wt.z);
+    vec3f scale = vec3f(wt.scale_x, wt.scale_y, wt.scale_z);
+    vec3f off   = vec_mul(vec3f(col->off_x, col->off_y, col->off_z), scale);
+
+    quatf q = quatf(wt.qx, wt.qy, wt.qz, wt.qw);
+    mat3f r = quatf_to_mat3f(q);
+
+    vec3f rot_off = vec_add(vec_scale(r.col[0], off.x), vec_scale(r.col[1], off.y), vec_scale(r.col[2], off.z));
+    vec3f center  = vec_add(pos, rot_off);
+    vec3f extents;
+
+    if (col->shape == COLLIDER_BOX) {
+        vec3f half = vec_abs(vec_mul(vec3f(col->half_x, col->half_y, col->half_z), scale));
+        extents    = vec_add(
+            vec_scale(vec_abs(r.col[0]), half.x),
+            vec_scale(vec_abs(r.col[1]), half.y),
+            vec_scale(vec_abs(r.col[2]), half.z)
+        );
+    } else if (col->shape == COLLIDER_SPHERE) {
+        float max_s = MAX(ABS(scale.x), ABS(scale.y), ABS(scale.z));
+        extents     = vec3f_splat(ABS(col->half_x) * max_s);
+    } else {
+        float rad = ABS(col->half_x) * MAX(ABS(scale.x), ABS(scale.z));
+        float hh  = MAX(ABS(col->half_y * scale.y), rad);
+        extents   = vec3f(rad, hh, rad);
+    }
+
+    return aabb_center_half(center, extents);
+}
+
 res_t spatial_grid3d_init(spatial_grid3d_t *grid, float cell_sz, uint32_t bucket_cnt) {
     ASSERT(grid,                                                "Attempted to initialize a NULL spatial_grid3d");
     ASSERT(bucket_cnt == 0 || IS_POW2(bucket_cnt), "bucket_cnt must be a power of two (or 0 for default)");
@@ -495,40 +522,11 @@ res_t spatial_grid3d_build_from_ecs(spatial_grid3d_t *grid, ecs_world_t *world, 
 
     for (uint32_t i = 0; i < view.cnt; ++i) {
         entity_handle_t   ent = view.ents[i];
-        trans3d wt;
-        ecs_get_world_trans(ent, &wt);
         const collider3d *col = ecs_get(ent, collider3d);
 
-        vec3f pos   = vec3f(wt.x, wt.y, wt.z);
-        vec3f scale = vec3f(wt.scale_x, wt.scale_y, wt.scale_z);
-        vec3f off   = vec3f_mul(vec3f(col->off_x, col->off_y, col->off_z), scale);
-
-        quatf q = quatf(wt.qx, wt.qy, wt.qz, wt.qw);
-        mat3f r = quatf_to_mat3f(q);
-
-        vec3f rot_off = vec3f(
-            r.cols[0][0] * off.x + r.cols[1][0] * off.y + r.cols[2][0] * off.z,
-            r.cols[0][1] * off.x + r.cols[1][1] * off.y + r.cols[2][1] * off.z,
-            r.cols[0][2] * off.x + r.cols[1][2] * off.y + r.cols[2][2] * off.z
-        );
-
-        vec3f center = vec3f_add(pos, rot_off);
-
-        vec3f half = vec3f_abs(vec_mul(vec3f(col->half_x, col->half_y, col->half_z), scale));
-
-        /*    ex = |r00| * hx + |r01| * hy + |r02| * hz */
-        /*    ey = |r10| * hx + |r11| * hy + |r12| * hz */
-        /*    ez = |r20| * hx + |r21| * hy + |r22| * hz */
-        vec3f extents = vec3f(
-            ABS(r.cols[0][0]) * half.x + ABS(r.cols[1][0]) * half.y + ABS(r.cols[2][0]) * half.z,
-            ABS(r.cols[0][1]) * half.x + ABS(r.cols[1][1]) * half.y + ABS(r.cols[2][1]) * half.z,
-            ABS(r.cols[0][2]) * half.x + ABS(r.cols[1][2]) * half.y + ABS(r.cols[2][2]) * half.z
-        );
-
-        /* tight aabb = [cx - ex, cy - ey, cz - ez] -> [cx + ex, cy + ey, cz + ez] */
         ents[i] = (spatial_entity3d_t){
             .ent    = ent,
-            .bounds = aabb_center_half(center, extents),
+            .bounds = spatial_calc_aabb(ent, col),
             .mask   = col->mask,
         };
     }

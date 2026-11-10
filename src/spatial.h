@@ -31,6 +31,13 @@ Features:
 #define SPATIAL_MAX_CELL_SPAN 64U
 #define SPATIAL_STACK_WORDS   32U /* 2048 entities */
 
+typedef enum physics_collider_shape {
+    COLLIDER_BOX     = 0, /* AABB with half-extents (half_x, half_y, [half_z]),                */
+    COLLIDER_CIRCLE  = 1, /* 2D circle with radius `half_x`                                    */
+    COLLIDER_SPHERE  = 1, /* 3D sphere with radius `half_x`                                    */
+    COLLIDER_CAPSULE = 2, /* upright Y-axis capsule with radius `half_x`, half-height `half_y` */
+} physics_collider_shape_t;
+
 /* ============================================================================================== */
 /* >2D SPATIAL GRID                                                                               */
 /* ============================================================================================== */
@@ -85,6 +92,7 @@ typedef struct spatial_grid2d {
     uint32_t                  bucket_cnt;  /* invariant: exists n in NN . bucket_cnt = 2^n */
 } spatial_grid2d_t;
 
+aabb2f   spatial_calc_aabb2d(entity_handle_t ent, const collider2d *col);
 res_t    spatial_grid2d_init(spatial_grid2d_t *grid, float cell_sz, uint32_t bucket_cnt);
 res_t    spatial_grid2d_build(spatial_grid2d_t *grid, const spatial_entity2d_t *ents, uint32_t ent_cnt, arena_t *scratch);
 res_t    spatial_grid2d_build_from_ecs(spatial_grid2d_t *grid, ecs_world_t *world, arena_t *scratch);
@@ -148,6 +156,7 @@ typedef struct spatial_grid3d {
     uint32_t                  bucket_cnt;  /* invariant: exists n in NN . bucket_cnt = 2^n */
 } spatial_grid3d_t;
 
+aabb3f   spatial_calc_aabb3d(entity_handle_t ent, const collider3d *col);
 res_t    spatial_grid3d_init(spatial_grid3d_t *grid, float cell_sz, uint32_t bucket_cnt);
 res_t    spatial_grid3d_build(spatial_grid3d_t *grid, const spatial_entity3d_t *ents, uint32_t ent_cnt, arena_t *scratch);
 /* if world==NULL uses s_active_world */
@@ -157,8 +166,25 @@ uint32_t spatial_query_radius3d(const spatial_grid3d_t *grid, vec3f center, floa
 uint32_t spatial_query_point3d(const spatial_grid3d_t *grid, vec3f  point, uint32_t mask, entity_handle_t *out_ents, uint32_t max_out);
 
 /* ============================================================================================== */
-/* >GENERIC WRAPPERS (PRIMARY PUBLIC API)                                                         */
+/* >GENERIC WRAPPERS                                                                              */
 /* ============================================================================================== */
+
+/*
+====================
+spatial_calc_aabb
+
+Given a collider component, evaluates world-space AABB.
+Accounts different collider types, rotation and scale.
+
+Returns the calculated AABB.
+====================
+*/
+#define spatial_calc_aabb(ent, col) _Generic((col),                                                \
+          collider2d *: spatial_calc_aabb2d,                                                       \
+    const collider2d *: spatial_calc_aabb2d,                                                       \
+          collider3d *: spatial_calc_aabb3d,                                                       \
+    const collider3d *: spatial_calc_aabb3d)                                                       \
+    ((ent), (col))
 
 /*
 ====================

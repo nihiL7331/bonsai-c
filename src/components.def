@@ -95,12 +95,13 @@ COMP_END(sprite2d)
 ====================
 collider2d
 
-2D axis-aligned bounding box (AABB) collision shape.
+2D bounding volume (AABB, circle or upright capsule) collision shape.
 Stores:
-- half extents   `half_x`, `half_y` (half-dimensions from offset center, default: <0.0f, 0.0f>)
-- center offset  `off_x`,  `off_y`  (relative to entity transform,       default: <0.0f, 0.0f>)
-- layer mask     `mask`             (collision filter bitmask,           default: 0x00000001)
-- trigger sensor `trigger`          (true: detect overlap only,          default: false)
+- half extents   `half_x/y` (box half-size, circle radius `half_x`, capsule radius `half_x` & half-height `half_y`, default: <0.0f, 0.0f>)
+- center offset  `off_x/y`  (relative to entity transform,                                                          default: <0.0f, 0.0f>)
+- layer mask     `mask`     (collision filter bitmask,                                                              default: 0x00000001)
+- trigger sensor `trigger`  (true: detect overlap only,                                                             default: false)
+- shape type     `shape`    (0=box, 1=circle, 2=capsule,                                                            default: 0)
 ====================
 */
 COMP(collider2d)
@@ -110,19 +111,21 @@ COMP(collider2d)
     FIELD(float,    off_y,      0.0f)
     FIELD(uint32_t, mask,       0x00000001)
     FIELD(bool,     trigger,    false)
-    FIELD(uint8_t,  _pad,    3, {0})
+    FIELD(uint8_t,  shape,      0)
+    FIELD(uint8_t,  _pad,    2, {0})
 COMP_END(collider2d)
 
 /*
 ====================
 collider3d
 
-3D axis-aligned bounding box (AABB) collision shape.
+3D bounding volume (AABB, sphere, or upright capsule) collision shape.
 Stores:
-- half extents  `half_x/y/z` (half-dimensions from offset center, default: <0.0f, 0.0f, 0.0f>)
-- center offset  `off_x/y/z` (relative to entity transform,       default: <0.0f, 0.0f, 0.0f>)
-- layer mask     `mask`      (collision filter bitmask,           default: 0x00000001)
-- trigger sensor `trigger`   (true: detect overlap only,          default: false)
+- half extents  `half_x/y/z` (box half-size, sphere radius `half_x`, capsule radius `half_x` & half-height `half_y`, default: <0.0f, 0.0f, 0.0f>)
+- center offset  `off_x/y/z` (relative to entity transform,                                                          default: <0.0f, 0.0f, 0.0f>)
+- layer mask     `mask`      (collision filter bitmask,                                                              default: 0x00000001)
+- trigger sensor `trigger`   (true: detect overlap only,                                                             default: false)
+- shape type     `shape`     (0=box, 1=sphere, 2=capsule,                                                            default: 0)
 ====================
 */
 COMP(collider3d)
@@ -134,7 +137,8 @@ COMP(collider3d)
     FIELD(float,    off_z,      0.0f)
     FIELD(uint32_t, mask,       0x00000001)
     FIELD(bool,     trigger,    false)
-    FIELD(uint8_t, _pad,     3, {0})
+    FIELD(uint8_t,  shape,      0)
+    FIELD(uint8_t, _pad,     2, {0})
 COMP_END(collider3d)
 
 /*
