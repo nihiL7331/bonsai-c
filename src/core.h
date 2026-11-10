@@ -119,6 +119,7 @@ nearest 64-byte cache-line multiple (`CACHE_LINE_SZ`).
 #define ARR_CNT(arr) (sizeof(arr) / sizeof(*arr))
 #define UNUSED(x)    ((void)x)
 #define NOOP         do { } while (0)
+#define SWAP(a, b)   do { __typeof__(a) swap_tmp_ = (a); (a) = (b); (b) = swap_tmp_; } while (0)
 
 #define _MIN2(a, b)       (((a) < (b)) ? (a) : (b))
 #define _MIN3(a, b, c)    _MIN2(_MIN2(a, b), c)
