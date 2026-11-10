@@ -225,7 +225,7 @@ typedef struct comp_meta {
 ====================
 reflect_comp_by_id
 
-Retrieves component reflection metadata by `id` ID.
+Retrieves component reflection metadata by `id`.
 Lazy-initializes registry on first call.
 
 Returns:

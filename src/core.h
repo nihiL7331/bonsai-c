@@ -50,7 +50,7 @@ debug-only assertions, fatal panics, and the global `res_t` status code enum.
 ALIGN_LINE_PTR
 
 Rounds a memory pointer upwards to the nearest 64-byte
-cache-line bounadry (`CACHE_LINE_SZ`). Used by arena allocator
+cache-line boundary (`CACHE_LINE_SZ`). Used by arena allocator
 to prevent false sharing and ensure optimal SIMD vector alignment.
 ====================
 */

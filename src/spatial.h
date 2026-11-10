@@ -209,7 +209,7 @@ Returns:
 ====================
 spatial_grid_build_from_ecs
 
-Extracts all active ECS entities owning posiiton and collision components:
+Extracts all active ECS entities owning position and collision components:
 - 2D: Queries entities with both `trans2d` and `collider2d`.
 - 3D: Queries entities with both `trans3d` and `collider3d`.
 Computes tight world-space AABBs accounting for rotation
@@ -222,7 +222,7 @@ Returns:
 - `OK`      on successful grid construction.
 - `EINVAL`  if `grid` or `scratch` is `NULL`.
 - `ENOTFND` if `world` is `NULL` and no active ECS world is bound.
-- `WEMPTY`  if no matching entitites exist in the queried world.
+- `WEMPTY`  if no matching entities exist in the queried world.
 - `EOOM`    if `scratch` lacks capacity for entity proxies or grid storage.
 ====================
 */
@@ -289,7 +289,7 @@ Queries spatial grid for all entities containing
 world point `point` (`vec2f` or `vec3f`).
 Hashes the single cell containing `point`,
 filters by layer `mask` (0 matches all), checks exact
-point containment (`aabb2f_contains` or `aab3f_contains`),
+point containment (`aabb2f_contains` or `aabb3f_contains`),
 and deduplicates linear results against bucket hash
 collisions without requiring bitset or scratch allocations.
 Asserts non-null pointers in debug, returns 0 in release.

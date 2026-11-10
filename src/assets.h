@@ -12,7 +12,7 @@ texture atlas in permanent arena memory with:
 - built-in procedural fallbacks (ID 0 solid white quad, ID 1 checkerboard)
 - text pixel art DSL (ASCII character mapping with 16-color palettes)
 - 9-primitive procedural vector canvas (anti-aliased shapes, curves and gradients)
-- memory-first and file-based dynaminc PNG/BMP/TGA loaders and spritesheet slicing
+- memory-first and file-based dynamic PNG/BMP/TGA loaders and spritesheet slicing
 - in-place asset hot reloading without atlas re-packing or game restart
 - atlas-level color mapping and palette swapping
 - disk export APIs (PNG)
@@ -219,7 +219,7 @@ Asserts valid inputs in debug, returns result code in release.
 
 Returns:
 - `OK`     on successful slot allocation.
-- `EINVAL` if `atlas` or `out_slot` is `NULL`, or `size_x <= 0 || size.y <= 0`.
+- `EINVAL` if `atlas` or `out_slot` is `NULL`, or `size.x <= 0 || size.y <= 0`.
 - `EFULL`  if the atlas bitmap has no remaining space for `size`, or `sprite_cnt >= max_sprites`.
 ====================
 */
@@ -348,7 +348,7 @@ void asset_slot_draw_gradient_linear(asset_slot_t *slot, aabb2i rect, uint32_t c
 ====================
 asset_slot_draw_gradient_radial
 
-Draws an anti-aliased radical color gradient from `center` out to `radius`.
+Draws an anti-aliased radial color gradient from `center` out to `radius`.
 Early exits if `slot` is `NULL`.
 ====================
 */
@@ -514,7 +514,7 @@ res_t asset_atlas_remap_palette(asset_atlas_t *atlas, const uint32_t *src_palett
 ====================
 asset_atlas_remap_color
 
-Replaces all occurences of `src_col` across the atlas bitmap with `dst_col`.
+Replaces all occurrences of `src_col` across the atlas bitmap with `dst_col`.
 Asserts non-null pointers in debug, returns result code in release.
 
 Returns:

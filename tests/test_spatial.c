@@ -163,7 +163,7 @@ int main(void) {
 
         size_t off_before = s_scratch_arena.off;
         entity_handle_t out[4];
-        /* pass scratch=NULL to prove it doesnt touch scratch when <=2048 */
+        /* pass scratch=NULL to prove it doesn't touch scratch when <=2048 */
         uint32_t cnt = spatial_query_aabb2d(&g, aabb2f(vec2f(-5, -5), vec2f(15, 15)), 0, out, 4, NULL);
         TEST_ASSERT(cnt == 1,                          "sbo stack query exp 1, got %u", cnt);
         TEST_ASSERT(s_scratch_arena.off == off_before, "sbo stack query must not allocate from scratch");
