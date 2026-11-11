@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 int main(void) {
-    TEST_CASE("arena_init", "alings buffer to CACHE_LINE_SZ") {
+    TEST_CASE("arena_init", "aligns buffer to CACHE_LINE_SZ") {
         uint8_t buf[CACHE_LINE_SZ * 16];
         arena_t a;
         res_t   res = arena_init(&a, buf, sizeof(buf));
@@ -108,7 +108,7 @@ int main(void) {
         arena_temp_t t1 = arena_temp_begin(&a);
         void *s1 = arena_alloc(&a, CACHE_LINE_SZ * 2);
         TEST_ASSERT(s1, "scope 1 alloc failed");
-        TEST_ASSERT(a.off > base_off, "off didnt advance in scope 1");
+        TEST_ASSERT(a.off > base_off, "off didn't advance in scope 1");
 
         arena_temp_t t2 = arena_temp_begin(&a);
         void *s2 = arena_alloc(&a, CACHE_LINE_SZ * 4);
@@ -122,7 +122,7 @@ int main(void) {
         TEST_ASSERT(a.off == base_off, "scope 1 rewind failed: exp off (%zu) == base_off (%zu)", a.off, base_off);
 
         void *nxt = arena_alloc(&a, 64);
-        TEST_ASSERT(nxt == s1, "realloced addr (%p) doesnt match rewound addr (%p)", nxt, s1);
+        TEST_ASSERT(nxt == s1, "realloc'd addr (%p) doesn't match rewound addr (%p)", nxt, s1);
     } TEST_CASE_END();
 
     TEST_CASE("arena_vm_def", "reserves def VM arena and demand-pages writes") {

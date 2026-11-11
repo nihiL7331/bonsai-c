@@ -188,7 +188,7 @@ static inline void _ecs_pool_remove(ecs_world_t *world, uint16_t e_idx, comp_id_
     p->cnt--;
 }
 
-/* Unlinks a child node `h` from its parents sibling list */
+/* Unlinks a child node `h` from its parent's sibling list */
 static inline void _ecs_hierarchy_unlink_parent(ecs_world_t *world, hierarchy *h) {
     if (!h || h->parent == ENTITY_NULL) return;
 

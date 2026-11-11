@@ -88,7 +88,7 @@ ecs_pool_t
 Sparse-set component storage.
 Maintains contiguous POD memory (`dense`) for packed
 iteration, mapped bidirectionally via a 64K lookup
-table (`sparse`) and backpointers (`entitites`).
+table (`sparse`) and backpointers (`entities`).
 ====================
 */
 typedef struct ecs_pool {
@@ -213,7 +213,7 @@ Captures a compact transactional snapshot
 of the active world into `world->backup`.
 Copies `world->mgr` and only the active
 dense slice (`0, ..., cnt - 1`) of
-non-empty component pools. Ovewrites any
+non-empty component pools. Overwrites any
 previous snapshot in `world->backup`.
 Asserts active world and backup arena in
 debug, returns result code in release.

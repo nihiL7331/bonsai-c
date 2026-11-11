@@ -108,7 +108,7 @@ mat3f
 
 3x3 column-major matrix representation.
 Memory stores 3 contiguous column vectors.
-Accessible via by scalars via `v[9]`, `cols[3][3]`
+Accessible as scalars via `v[9]`, `cols[3][3]`
 or by column (`vec3f`) via `col[3]`.
 ====================
 */
@@ -124,7 +124,7 @@ mat4f
 
 4x4 column-major matrix representation.
 Memory stores 4 contiguous column vectors.
-Accessible via by scalars via `v[16]`, `cols[4][4]`
+Accessible as scalars via `v[16]`, `cols[4][4]`
 or by column (`vec4f`) via `col[4]`.
 ====================
 */
@@ -1089,7 +1089,7 @@ quatf_slerp
 Spherical linear interpolation between orientations
 `a` and `b` at factor `t` in [0, 1].
 Selects shortest rotational arc by testing dot product sign.
-Falls back to normalizeed linear interpolation for nearly
+Falls back to normalized linear interpolation for nearly
 parallel orientations (|dot| > 0.999).
 
 Returns the interpolated unit quaternion.
