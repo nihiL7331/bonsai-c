@@ -88,11 +88,11 @@ int main(void) {
         /* ang_damp    = 1 / 2.0 = 0.5 -> ang_vel_z = PI / 2 (90 deg around Z) */
         const trans3d *t  = ecs_get(e, trans3d);
         const rb3d    *rb = ecs_get(e, rb3d);
-        TEST_ASSERT(fabsf(rb->vel_x - 20.0f)            < 1e-4f, "vel_x exp 20, got %.4f", rb->vel_x);
-        TEST_ASSERT(fabsf(rb->vel_z - -10.0f)           < 1e-4f, "vel_z exp -10, got %.4f", rb->vel_z);
-        TEST_ASSERT(fabsf(t->x - 20.0f)                 < 1e-4f, "x exp 20, got %.4f", t->x);
-        TEST_ASSERT(fabsf(t->z - -10.0f)                < 1e-4f, "z exp -10, got %.4f", t->z);
+        TEST_ASSERT(fabsf(rb->vel_x - 20.0f)         < 1e-4f, "vel_x exp 20, got %.4f", rb->vel_x);
+        TEST_ASSERT(fabsf(rb->vel_z + 10.0f)         < 1e-4f, "vel_z exp -10, got %.4f", rb->vel_z);
         TEST_ASSERT(fabsf(rb->ang_vel_z - GMATH_HALFPI) < 1e-4f, "ang_vel_z exp PI/2, got %.4f", rb->ang_vel_z);
+        TEST_ASSERT(fabsf(t->x - 20.0f)              < 1e-4f, "x exp 20, got %.4f", t->x);
+        TEST_ASSERT(fabsf(t->z + 10.0f)              < 1e-4f, "z exp -10, got %.4f", t->z);
 
         quatf exp_q = quatf_axis_angle(vec3f(0, 0, 1), GMATH_HALFPI);
         TEST_ASSERT(fabsf(t->qz - exp_q.z) < 1e-4f, "qz exp %.4f, got %.4f", exp_q.z, t->qz);
@@ -357,6 +357,14 @@ int main(void) {
         TEST_ASSERT(hits[0].ent == near_box && fabsf(hits[0].dist - 12.0f) < 1e-4f, "near_box dist exp 12.0, got %.4f", hits[0].dist);
         TEST_ASSERT(fabsf(hits[0].normal.z - 1.0f) < 1e-4f,                         "near_box normal.z exp +1.0, got %.4f", hits[0].normal.z);
         TEST_ASSERT(hits[1].ent == far_box  && fabsf(hits[1].dist - 36.0f) < 1e-4f, "far_box dist exp 36.0, got %.4f", hits[1].dist);
+        cnt = physics_raycast3d(NULL, vec3f(0, 0, 0), vec3f(0, 0, -5), 100, 0x01, 0, hits, 1);
+        TEST_ASSERT(cnt == 1 && hits[0].ent == near_box, "bounded output keeps closest hit encountered later");
+        TEST_ASSERT(fabsf(hits[0].dist - 12.0f) < 1e-4f, "non-unit direction preserves world distance");
+        cnt = physics_raycast3d(NULL, vec3f(0, 0, 0), vec3f(0, 0, -1), 11, 0x01, 0, hits, 4);
+        TEST_ASSERT(cnt == 0, "maximum distance excludes both boxes");
+        ecs_destroy(near_box);
+        cnt = physics_raycast3d(NULL, vec3f(0, 0, 0), vec3f(0, 0, -1), 100, 0x01, 0, hits, 1);
+        TEST_ASSERT(cnt == 1 && hits[0].ent == far_box, "unsynced destruction immediately hides near collider");
     } TEST_CASE_END();
 
     TEST_CASE("physics_circle_2d", "2D circle-circle and box-circle colls and rays") {
@@ -460,6 +468,29 @@ int main(void) {
         TEST_ASSERT(fabsf(rhit.normal.y - 1.0f) < 1e-4f, "top cap normal.y exp +1.0");
     } TEST_CASE_END();
 
+    TEST_CASE("physics_world_bind", "steps explicit world and restores original binding") {
+        ecs_world_t *active = reset_world();
+        entity_handle_t original = ecs_spawn();
+        TEST_ASSERT(ecs_add(original, trans2d, NULL) != NULL, "original transform added");
+        ecs_world_t *other = ecs_world_create(&s_perm_arena, NULL, &s_scratch_arena);
+        TEST_ASSERT(other != NULL, "second world created");
+        ecs_set_world(other);
+        entity_handle_t moving = ecs_spawn();
+        TEST_ASSERT(ecs_add(moving, trans2d, NULL) != NULL, "moving transform added");
+        rb2d velocity = { .vel_x = 4, .inv_mass = 1 };
+        TEST_ASSERT(ecs_add(moving, rb2d, &velocity) != NULL, "moving rigid body added");
+        ecs_set_world(active);
+        TEST_ASSERT(physics_step2d(other, 0.5f, 32, NULL) == OK, "explicit world stepped");
+        TEST_ASSERT(ecs_get_world() == active, "original binding restored");
+        TEST_ASSERT(ecs_get(original, trans2d)->x == 0, "original world untouched");
+        TEST_ASSERT(fabsf(ecs_get_fast(other, moving, trans2d)->x - 2) < 1e-4f, "explicit world advanced");
+        ecs_set_world(NULL);
+        TEST_ASSERT(physics_step2d(other, 0.5f, 32, NULL) == OK, "explicit step works without active world");
+        TEST_ASSERT(ecs_get_world() == NULL, "null binding restored");
+        ecs_set_world(active);
+    } TEST_CASE_END();
+
+    ecs_set_world(NULL);
     arena_free_vm(&s_perm_arena);
     arena_free_vm(&s_backup_arena);
     arena_free_vm(&s_scratch_arena);
