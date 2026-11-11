@@ -26,11 +26,13 @@ All components MUST be POD with zero heap pointers.
 ====================
 trans2d
 
-2D spatial transform component.
+2D transform, relative to the parent when attached through hierarchy.
+Root transorms are expressed in world space.
+
 Stores:
-- `position` (in world units, default: <0.0f, 0.0f>)
-- `rotation` (in radians,     default: 0.0f)
-- `scale`    (unitless,       default: 1.0f)
+- `position`: translation in world units,         default: <0, 0>.
+- `rotation`: angle in radians,                   default: 0.
+- `scale`:    uniform dimensionless scale factor, default: 1.
 ====================
 */
 COMP(trans2d)
@@ -43,11 +45,13 @@ COMP_END(trans2d)
 ====================
 trans3d
 
-3D spatial transform component.
+3D transform, relative to the parent when attached through hierarchy.
+Root transorms are expressed in world space.
+
 Stores:
-- `posiiton` (in world units,        default: <0, 0, 0>)
-- `rotation` (normalized quaternion, default: <0, 0, 0, 1>)
-- `scale`    (unitless,              default: <1, 1, 1>)
+- `position`: translation in world units,            default: <0, 0, 0>.
+- `rotation`: unit quaternion in <x, y, z, w> order, default: identity (<0, 0, 0, 1>).
+- `scale`:    dimensionless per-axis scale factors,  default: <1, 1, 1>.
 ====================
 */
 COMP(trans3d)
@@ -64,12 +68,14 @@ COMP_END(trans3d)
 ====================
 sprite2d
 
-2D quad/sprite render descriptor.
+2D sprite render descriptor paired with `trans2d`.
+
 Stores:
-- texture ID    `id`        (atlas/sprite index,   default: 0 = `ASSET_SPRITE_WHITE`)
-- sorting layer `layer`     (render order 0-255,   default: 0)
-- flip flags    `flip_mask` (bitmask for H/V flip, default: 0)
-- tint color    `color`     (packed 32-bit RGBA,   default: 0xFFFFFFFF)
+- `id`:        atlas sprite identifier,                                           default: 0 = `ASSET_SPRITE_WHITE`.
+- `layer`:     draw-order layer from 0 to 255. Higher layers are submitted later, default: 0.
+- `flip_mask`: UV mirror flags, 1 = horizontal and 2 = vertical.
+               Combine flags to mirror both axes,                                 default: 0.
+- `color`:     multiplicative RGBA tint packed as 0xRRGGBBAA,                     default: 0xFFFFFFFF.
 ====================
 */
 COMP(sprite2d)
@@ -83,11 +89,12 @@ COMP_END(sprite2d)
 ====================
 mesh3d
 
-3D mesh render descriptor.
+3D mesh render descriptor paired with `trans3d`.
+
 Stores:
-- mesh ID    `mesh_id` (mesh registry index, default: 0 = `MESH_ID_CUBE`)
-- texture ID `tex_id`  (atlas texture index, default: 0 = `ASSET_SPRITE_WHITE`)
-- tint       `color`   (packed 32-bit RGBA, default: 0xFFFFFFFF)
+- `mesh_id`: mesh registry identifier,                       default: 0 = `MESH_ID_CUBE`.
+- `tex_id`:  atlas sprite identifier used to remap mesh UVs, default: 0 = `ASSET_SPRITE_WHITE`.
+- `color`:   multiplicative RGBA tint packed as 0xRRGGBBAA,  default: 0xFFFFFFFF.
 ====================
 */
 COMP(mesh3d)
@@ -100,15 +107,17 @@ COMP_END(mesh3d)
 ====================
 light3d
 
-3D light source. Position and direction come from entitys world `trans3d`
-(direction = local -Z rotated by orientation).
+3D light descriptor paired with `trans3d`.
+Position comes from the world transform.
+Direction follows local -Z rotated by its world orientation.
+
 Stores:
-- light type `type`      (0=directional, 1=point, 2=spot,            default: 1)
-- color      `color`     (packed RGBA 0xRRGGBBAA, alpha ignored,     default: 0xFFFFFFFF)
-- intensity  `intensity` (linear multiplier,                         default: 1.0f)
-- range      `range`     (point/spot falloff radius in world units,  default: 10.0f)
-- cone       `cone_in`   (spot full-intensity half-angle in radians, default: 0.35f)
-- cone       `cone_out`  (spot zero-intensity half-angle in radians, default: 0.5f)
+- `type`:      0 = directional, 1 = point, 2 = spot,                   default: 1.
+- `color`:     RGB light color packed as 0xRRGGBBAA. Alpha is ignored, default: 0xFFFFFFFF.
+- `intensity`: dimensionless multiplier applied to RGB,                default: 1.
+- `range`:     point/spot falloff radius in world units,               default: 10.
+- `cone_in`:   spot half-angle for full intensity in radians,          default: 0.35.
+- `cone_out`:  spot half-angle for zero intensity in radians,          default: 0.5.
 ====================
 */
 COMP(light3d)
@@ -129,13 +138,20 @@ COMP_END(light3d)
 ====================
 collider2d
 
-2D bounding volume (AABB, circle or upright capsule) collision shape.
+2D box, circle or upright Y-axis capsule collision shape.
+Dimensions and offset are expressed in local world units and scaled
+by the entitys world transform. The offset also follows its rotation.
+
 Stores:
-- half extents   `half_x/y` (box half-size, circle radius `half_x`, capsule radius `half_x` & half-height `half_y`, default: <0.0f, 0.0f>)
-- center offset  `off_x/y`  (relative to entity transform,                                                          default: <0.0f, 0.0f>)
-- layer mask     `mask`     (collision filter bitmask,                                                              default: 0x00000001)
-- trigger sensor `trigger`  (true: detect overlap only,                                                             default: false)
-- shape type     `shape`    (0=box, 1=circle, 2=capsule,                                                            default: 0)
+- `half_extents`: box half-size <x, y>. Circles use `x` as radius.
+                  Capsules use `x` as radius and `y` as total
+                  half-height, including caps.                     default: <0, 0>.
+- `offset`:       center offset from the entity origin,            default: <0, 0>.
+- `mask`:         collision-layer bitmask. Physics pairs require
+                  at least one shared bit,                         default: 0x00000001.
+- `trigger`:      reports overlaps while skipping physical
+                  separation and impulse response,                 default: false.
+- `shape`:        0 = box, 1 = circle, 2 = capsule,                default: 0.
 ====================
 */
 COMP(collider2d)
@@ -151,13 +167,21 @@ COMP_END(collider2d)
 ====================
 collider3d
 
-3D bounding volume (AABB, sphere, or upright capsule) collision shape.
+3D box, sphere, or upright Y-axis capsule collision shape.
+Dimensions and offset are expressed in local world units and
+scaled by the entitys world transform. The offset also follows
+its rotation.
+
 Stores:
-- half extents  `half_x/y/z` (box half-size, sphere radius `half_x`, capsule radius `half_x` & half-height `half_y`, default: <0.0f, 0.0f, 0.0f>)
-- center offset  `off_x/y/z` (relative to entity transform,                                                          default: <0.0f, 0.0f, 0.0f>)
-- layer mask     `mask`      (collision filter bitmask,                                                              default: 0x00000001)
-- trigger sensor `trigger`   (true: detect overlap only,                                                             default: false)
-- shape type     `shape`     (0=box, 1=sphere, 2=capsule,                                                            default: 0)
+- `half_extents`: box half-size <x, y, z>. Spheres use `x` as radius.
+                  Capsules use `x` as radius and `y` as total
+                  half-height, including caps.                        default: <0, 0, 0>.
+- `offset`:       center offset from the entity origin,               default: <0, 0, 0>.
+- `mask`:         collision-layer bitmask. Physics pairs require at
+                  least one shared bit,                               default: 0x00000001.
+- `trigger`:      reports overlaps while skipping physical separation
+                  and impulse response,                               default: false.
+- `shape`:        0 = box, 1 = sphere, 2 = capsule,                   default: 0.
 ====================
 */
 COMP(collider3d)
@@ -173,12 +197,14 @@ COMP_END(collider3d)
 ====================
 rb2d
 
-2D rigid body physics dynamics state.
+2D rigid-body motion and mass properties used by `physics_step2d`.
+
 Stores:
-- linear velocity  `vel_x`, `vel_y` (units/second,                      default: <0.0f, 0.0f>)
-- angular velocity `angular_vel`    (radians/second,                    default: 0.0f)
-- inverse mass     `inv_mass`       (1/kg, 0.0f = static/infinite mass, default: 1.0f)
-- linear damping   `drag`           (velocity decay coefficient,        default: 0.0f)
+- `velocity`:         linear velocity in world units per second,                default: <0, 0>.
+- `angular_velocity`: angular velocity in radians per second,                   default: 0.
+- `inv_mass`:         inverse mass in 1/kg. Zero represents a static body,      default: 1.
+- `drag`:             linear damping coefficient in inverse seconds.
+                      Positive values multiply velocity by 1 / (1 + drag * dt), default: 0
 ====================
 */
 COMP(rb2d)
@@ -192,13 +218,19 @@ COMP_END(rb2d)
 ====================
 rb3d
 
-3D rigid body physics dynamic state.
+3D rigid-body motion and mass properties used by `physics_step3d`.
+
 Stores:
-- linear velocity  `vel_x/y/z`     (units/second,                      default: <0.0f, 0.0f, 0.0f>)
-- angular velocity `ang_vel_x/y/z` (radians/second,                    default: <0.0f, 0.0f, 0.0f>)
-- inverse mass     `inv_mass`      (1/kg, 0.0f = static/infinite mass, default: 1.0f)
-- linear damping   `drag`          (velocity decay coefficient,        default: 0.0f)
-- angular damping  `ang_drag`      (rotational decay coefficient,      default: 0.0f)
+- `velocity`:         linear velocity in world units per second,            default: <0, 0, 0>.
+- `angular_velocity`: rotation-axis vector whose magnitude is angular speed
+                      in radians per second,                                default: <0, 0, 0>.
+- `inv_mass`:         inverse mass in 1/kg. Zero represents a static body,  default: 1.
+- `drag`:             linear damping coefficient in inverse seconds.
+                      Positive values multiply `velocity` by
+                      1 / (1 + drag * dt),                                  default: 0.
+- `ang_drag`:         angular damping coefficient in inverse seconds.
+                      Positive values multiply angular_velocity by
+                      1 / (1 + ang_drag * dt),                              default: 0.
 ====================
 */
 COMP(rb3d)
@@ -217,9 +249,11 @@ COMP_END(rb3d)
 ====================
 tag
 
-Entity identification and debugging tag.
+Entity identification and debugging label.
+
 Stores:
-- name `name` (fixed-size 32-byte null-terminated string, default: "")
+- `name`: 32-byte NUL-terminated string, including the terminator.
+          Holds up to 31 characters,                               default: empty.
 ====================
 */
 COMP(tag)
@@ -230,13 +264,15 @@ COMP_END(tag)
 ====================
 hierarchy
 
-Intrusive relational scene-tree node links.
+Intrusive scene-forest links maintained by the ECS parenting and
+destruction APIs.
+
 Stores:
-- parent entity      `parent`       (parent handle,        default: `ENTITY_NULL`)
-- first child entity `first_child`  (head of child list,   default: `ENTITY_NULL`)
-- previous sibling   `prev_sibling` (left sibling handle,  default: `ENTITY_NULL`)
-- next sibling       `next_sibling` (right sibling handle, default: `ENTITY_NULL`)
-- direct child count `child_cnt`    (number of children,   default: 0)
+- `parent`:       parent entity handle,                default: `ENTITY_NULL`.
+- `first_child`:  head of the direct-child list,       default: `ENTITY_NULL`.
+- `prev_sibling`: previous entity in the sibling list, default: `ENTITY_NULL`.
+- `next_sibling`: next entity in the sibling list,     default: `ENTITY_NULL`.
+- `child_cnt`:    number of direct children,           default: 0.
 ====================
 */
 COMP(hierarchy)
