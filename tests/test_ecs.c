@@ -203,6 +203,24 @@ int main(void) {
         TEST_ASSERT(p->entities[e3_dense] == e3_idx,                         "backpointer mismatch");
     } TEST_CASE_END();
 
+    TEST_CASE("ecs_cmd_growth", "preserves removals through deferred buffer growth") {
+        ecs_world_t *w = reset_world();
+        entity_handle_t ents[ECS_CMD_INIT_CAP + 1];
+        for (size_t i = 0; i < ARR_CNT(ents); ++i) {
+            ents[i] = ecs_spawn();
+            TEST_ASSERT(ecs_add(ents[i], trans2d, NULL) != NULL, "component %zu added", i);
+            ecs_del(ents[i], trans2d);
+        }
+        TEST_ASSERT(w->cmd_cnt == ARR_CNT(ents), "all removals queued");
+        ecs_sync();
+        TEST_ASSERT(w->pools[COMP_trans2d].cnt == 0, "all components removed after growth");
+        TEST_ASSERT(w->cmd_buf == NULL && w->cmd_cap == 0, "queue storage references cleared");
+        for (size_t i = 0; i < ARR_CNT(ents); ++i) {
+            TEST_ASSERT(ecs_is_alive(ents[i]), "entity %zu survives removal", i);
+            TEST_ASSERT(!ecs_has(ents[i], trans2d), "component %zu removed", i);
+        }
+    } TEST_CASE_END();
+
     TEST_CASE("ecs_query_single", "matches all entities owning target component") {
         reset_world();
         entity_handle_t e1 = ecs_spawn();
@@ -374,6 +392,26 @@ int main(void) {
         TEST_ASSERT(w->cmd_cnt == 0U,                   "rollback must discard pending deferred cmds");
         TEST_ASSERT(ecs_is_alive(e1),                   "e1 must be alive after 2nd rollback");
         TEST_ASSERT(ecs_get(e2, trans2d)->y == 40.0f,   "e2.y not intact after 2nd rollback");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_snap_replace", "replaces snapshot after removal and index reuse") {
+        reset_world();
+        entity_handle_t old = ecs_spawn();
+        TEST_ASSERT(ecs_add(old, trans2d, NULL) != NULL, "original transform added");
+        TEST_ASSERT(ecs_world_snapshot() == OK, "first snapshot succeeds");
+        ecs_destroy(old);
+        ecs_sync();
+        entity_handle_t current = ecs_spawn();
+        TEST_ASSERT(entity_idx(current) == entity_idx(old), "entity index reused");
+        TEST_ASSERT(ecs_add(current, sprite2d, NULL) != NULL, "replacement sprite added");
+        TEST_ASSERT(ecs_world_snapshot() == OK, "replacement snapshot succeeds");
+        ecs_del(current, sprite2d);
+        ecs_sync();
+        TEST_ASSERT(ecs_world_rollback() == OK, "replacement snapshot restored");
+        TEST_ASSERT(!ecs_is_alive(old) && ecs_is_alive(current), "replacement generation restored");
+        TEST_ASSERT(ecs_has(current, sprite2d) && !ecs_has(current, trans2d), "replacement component membership restored");
+        ecs_view_t view = ecs_query_comp(sprite2d);
+        TEST_ASSERT(view.cnt == 1 && view.ents[0] == current, "restored sparse mapping supports queries");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_rollback_empty", "returns ENOTFND when roll back without snapshot") {
