@@ -87,6 +87,23 @@ COMP(sprite2d)
     FIELD(uint32_t, color,     0xFFFFFFFF)
 COMP_END(sprite2d)
 
+/*
+====================
+mesh3d
+
+3D mesh render descriptor.
+Stores:
+- mesh ID    `mesh_id` (mesh registry index, default: 0 = `MESH_ID_CUBE`)
+- texture ID `tex_id`  (atlas texture index, default: 0 = `ASSET_SPRITE_WHITE`)
+- tint       `color`   (packed 32-bit RGBA, default: 0xFFFFFFFF)
+====================
+*/
+COMP(mesh3d)
+    FIELD(uint16_t, mesh_id, 0x0000)
+    FIELD(uint16_t, tex_id,  0x0000)
+    FIELD(uint32_t, color,   0xFFFFFFFF)
+COMP_END(mesh3d)
+
 /* ============================================================================================== */
 /* >COLLISION & PHYSICS                                                                           */
 /* ============================================================================================== */
