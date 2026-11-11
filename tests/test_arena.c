@@ -170,5 +170,23 @@ int main(void) {
         TEST_ASSERT(arena_free_vm(&a) == EINVAL, "double free on zeroed arena must return EINVAL");
     } TEST_CASE_END();
 
+    TEST_CASE("arena_has_bounds", "tracks active ranges through unwind and reset") {
+        _Alignas(CACHE_LINE_SZ) uint8_t buf[CACHE_LINE_SZ * 4];
+        arena_t a;
+        TEST_ASSERT(arena_init(&a, buf, sizeof(buf)) == OK, "arena initialized");
+        uint8_t *persistent = arena_alloc(&a, CACHE_LINE_SZ);
+        arena_temp_t mark = arena_temp_begin(&a);
+        uint8_t *temporary = arena_alloc(&a, CACHE_LINE_SZ);
+
+        TEST_ASSERT(arena_has(&a, persistent, CACHE_LINE_SZ * 2), "active range spans both allocations");
+        TEST_ASSERT(!arena_has(&a, temporary, CACHE_LINE_SZ + 1), "range past active end rejected");
+        TEST_ASSERT(!arena_has(&a, buf + CACHE_LINE_SZ * 3, 1), "unused capacity rejected");
+        arena_temp_end(mark);
+        TEST_ASSERT(arena_has(&a, persistent, CACHE_LINE_SZ), "earlier allocation survives unwind");
+        TEST_ASSERT(!arena_has(&a, temporary, 1), "temporary allocation invalidated");
+        arena_reset(&a);
+        TEST_ASSERT(!arena_has(&a, persistent, 1), "reset invalidates earlier allocation");
+    } TEST_CASE_END();
+
     TEST_END();
 }
