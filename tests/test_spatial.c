@@ -186,6 +186,24 @@ int main(void) {
         TEST_ASSERT(s_scratch_arena.off == off_after_build, "scratch offset exp rewound to %zu, got %zu", off_after_build, s_scratch_arena.off);
     } TEST_CASE_END();
 
+    TEST_CASE("spatial_hash_alias", "filters hash collisions across negative cells") {
+        arena_reset(&s_scratch_arena);
+        spatial_grid2d_t grid;
+        TEST_ASSERT(spatial_grid2d_init(&grid, 8.0f, 1) == OK, "one bucket forces all cells to collide");
+        spatial_entity2d_t ents[] = {
+            { .ent = 1, .bounds = aabb2f(vec2f(-20, -20), vec2f(-1, -1)), .mask = 1 },
+            { .ent = 2, .bounds = aabb2f(vec2f(20, 20), vec2f(30, 30)), .mask = 1 },
+        };
+        TEST_ASSERT(spatial_grid2d_build(&grid, ents, ARR_CNT(ents), &s_scratch_arena) == OK, "grid built");
+        entity_handle_t out[2] = { ENTITY_NULL, ENTITY_NULL };
+        aabb2f query = aabb2f(vec2f(-24, -24), vec2f(0, 0));
+        uint32_t cnt = spatial_query_aabb2d(&grid, query, 0, out, 1, &s_scratch_arena);
+        TEST_ASSERT(cnt == 1 && out[0] == 1, "negative multi-cell entity returned once");
+        TEST_ASSERT(out[1] == ENTITY_NULL, "output capacity respected");
+        cnt = spatial_query_point2d(&grid, vec2f(0, 0), 0, out, 2);
+        TEST_ASSERT(cnt == 0, "hash collisions cannot produce point false positives");
+    } TEST_CASE_END();
+
     TEST_CASE("spatial_ecs2d", "builds 2D grid from ECS transforms and colliders") {
         reset_world();
         spatial_grid2d_t g;
