@@ -118,26 +118,25 @@ aabb2f spatial_calc_aabb2d(entity_handle_t ent, const collider2d *col) {
     trans2d wt;
     ecs_get_world_trans(ent, &wt);
 
-    vec2f pos  = vec2f(wt.x, wt.y);
-    vec2f off  = vec_scale(vec2f(col->off_x, col->off_y), wt.scale);
+    vec2f off  = vec_scale(col->offset, wt.scale);
 
     vec2f center, extents;
-    if (wt.rot != 0.0f) {
-        float c = cosf(wt.rot), s = sinf(wt.rot);
-        center  = vec_add(pos, vec2f(off.x * c - off.y * s, off.x * s + off.y * c));
-    } else center = vec_add(pos, off);
+    if (wt.rotation != 0.0f) {
+        float c   = cosf(wt.rotation), s = sinf(wt.rotation);
+        center    = vec_add(wt.position, vec2f(off.x * c - off.y * s, off.x * s + off.y * c));
+    } else center = vec_add(wt.position, off);
 
     if (col->shape == COLLIDER_BOX) {
-        vec2f half = vec_abs(vec_scale(vec2f(col->half_x, col->half_y), wt.scale));
-        if (wt.rot != 0.0f) {
-            float c = cosf(wt.rot), s = sinf(wt.rot);
-            extents = vec2f(half.x * ABS(c) + half.y * ABS(s), half.x * ABS(s) + half.y * ABS(c));
+        vec2f half = vec_abs(vec_scale(col->half_extents, wt.scale));
+        if (wt.rotation != 0.0f) {
+            float c    = cosf(wt.rotation), s = sinf(wt.rotation);
+            extents    = vec2f(half.x * ABS(c) + half.y * ABS(s), half.x * ABS(s) + half.y * ABS(c));
         } else extents = half;
     } else if (col->shape == COLLIDER_CIRCLE) {
-        extents = vec2f_splat(ABS(col->half_x * wt.scale));
+        extents = vec2f_splat(ABS(col->half_extents.x * wt.scale));
     } else {
-        float rad = ABS(col->half_x * wt.scale);
-        float hh  = MAX(ABS(col->half_y * wt.scale), rad);
+        float rad = ABS(col->half_extents.x * wt.scale);
+        float hh  = MAX(ABS(col->half_extents.y * wt.scale), rad);
         extents   = vec2f(rad, hh);
     }
 
@@ -387,30 +386,27 @@ aabb3f spatial_calc_aabb3d(entity_handle_t ent, const collider3d *col) {
     trans3d wt;
     ecs_get_world_trans(ent, &wt);
 
-    vec3f pos   = vec3f(wt.x, wt.y, wt.z);
-    vec3f scale = vec3f(wt.scale_x, wt.scale_y, wt.scale_z);
-    vec3f off   = vec_mul(vec3f(col->off_x, col->off_y, col->off_z), scale);
-
-    quatf q = quatf(wt.qx, wt.qy, wt.qz, wt.qw);
-    mat3f r = quatf_to_mat3f(q);
+    vec3f off = vec_mul(col->offset, wt.scale);
+    mat3f r   = quatf_to_mat3f(wt.rotation);
 
     vec3f rot_off = vec_add(vec_scale(r.col[0], off.x), vec_scale(r.col[1], off.y), vec_scale(r.col[2], off.z));
-    vec3f center  = vec_add(pos, rot_off);
+    vec3f center  = vec_add(wt.position, rot_off);
     vec3f extents;
 
     if (col->shape == COLLIDER_BOX) {
-        vec3f half = vec_abs(vec_mul(vec3f(col->half_x, col->half_y, col->half_z), scale));
+        vec3f half = vec_abs(vec_mul(col->half_extents, wt.scale));
         extents    = vec_add(
             vec_scale(vec_abs(r.col[0]), half.x),
             vec_scale(vec_abs(r.col[1]), half.y),
             vec_scale(vec_abs(r.col[2]), half.z)
         );
     } else if (col->shape == COLLIDER_SPHERE) {
-        float max_s = MAX(ABS(scale.x), ABS(scale.y), ABS(scale.z));
-        extents     = vec3f_splat(ABS(col->half_x) * max_s);
+        vec3f abs_scale = vec_abs(wt.scale);
+        float max_s     = MAX(abs_scale.x, abs_scale.y, abs_scale.z);
+        extents         = vec3f_splat(ABS(col->half_extents.x) * max_s);
     } else {
-        float rad = ABS(col->half_x) * MAX(ABS(scale.x), ABS(scale.z));
-        float hh  = MAX(ABS(col->half_y * scale.y), rad);
+        float rad = ABS(col->half_extents.x) * MAX(ABS(wt.scale.x), ABS(wt.scale.z));
+        float hh  = MAX(ABS(col->half_extents.y * wt.scale.y), rad);
         extents   = vec3f(rad, hh, rad);
     }
 

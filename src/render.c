@@ -103,20 +103,18 @@ mat4f render_cam2d_vp(const render_cam2d_t *cam, vec2i viewport) {
 mat4f render_trans3d_mat4(const trans3d *wt) {
     if (!wt) return mat4f_id();
 
-    quatf q = (wt->qx == 0.0f && wt->qy == 0.0f && wt->qz == 0.0f && wt->qw == 0.0f)
-              ? quatf_id()
-              : quatf_norm(quatf(wt->qx, wt->qy, wt->qz, wt->qw));
+    quatf q = quatf_norm(wt->rotation);
     mat3f r = quatf_to_mat3f(q);
 
-    vec3f c0 = vec_scale(r.col[0], wt->scale_x);
-    vec3f c1 = vec_scale(r.col[1], wt->scale_y);
-    vec3f c2 = vec_scale(r.col[2], wt->scale_z);
+    vec3f c0 = vec_scale(r.col[0], wt->scale.x);
+    vec3f c1 = vec_scale(r.col[1], wt->scale.y);
+    vec3f c2 = vec_scale(r.col[2], wt->scale.z);
 
     return mat4f(
-        vec4f(c0.x,  c0.y,  c0.z,  0),
-        vec4f(c1.x,  c1.y,  c1.z,  0),
-        vec4f(c2.x,  c2.y,  c2.z,  0),
-        vec4f(wt->x, wt->y, wt->z, 1)
+        vec4f(c0.x,           c0.y,           c0.z,           0),
+        vec4f(c1.x,           c1.y,           c1.z,           0),
+        vec4f(c2.x,           c2.y,           c2.z,           0),
+        vec4f(wt->position.x, wt->position.y, wt->position.z, 1)
     );
 }
 
@@ -170,26 +168,22 @@ res_t render_build_batch(ecs_world_t *world, const asset_atlas_t *atlas, const m
                 if (t) wt = *t; else continue;
             }
 
-            quatf q   = (wt.qx == 0.0f && wt.qy == 0.0f && wt.qz == 0.0f && wt.qw == 0.0f)
-                        ? quatf_id()
-                        : quatf_norm(quatf(wt.qx, wt.qy, wt.qz, wt.qw));
+            quatf q   = quatf_norm(wt.rotation);
             vec3f dir = quatf_mul_vec3(q, vec3f(0, 0, -1));
             dir       = vec_len_sq(dir) > 1e-8f ? vec_norm(dir) : vec3f(0, 0, -1);
-
-            vec3f pos = vec3f(wt.x, wt.y, wt.z);
 
             float r_col = ((lc->color >> 24) & 0xFFU) / 255.0f;
             float g_col = ((lc->color >> 16) & 0xFFU) / 255.0f;
             float b_col = ((lc->color >>  8) & 0xFFU) / 255.0f;
 
             render_light_gpu_t gpu = {
-                .pos_range = vec4f(pos.x, pos.y, pos.z, lc->type == LIGHT_DIR ? 0.0f : MAX(0.0f, lc->range)),
-                .dir_type  = vec4f(dir.x, dir.y, dir.z, (float)lc->type),
+                .pos_range = vec4f(wt.position.x, wt.position.y, wt.position.z, lc->type == LIGHT_DIR ? 0.0f : MAX(0.0f, lc->range)),
+                .dir_type  = vec4f(dir.x,         dir.y,         dir.z,         (float)lc->type),
                 .color     = vec_scale(vec4f(r_col, g_col, b_col, 1), lc->intensity),
                 .cone      = vec4f(cosf(lc->cone_in), cosf(lc->cone_out), 0, 0),
             };
 
-            float d2 = vec_len_sq(vec_sub(pos, view->cam3d.pos));
+            float d2 = vec_len_sq(vec_sub(wt.position, view->cam3d.pos));
 
             cands[cand_cnt++] = (_light_cand_t){
                 .gpu     = gpu,
@@ -290,11 +284,11 @@ res_t render_build_batch(ecs_world_t *world, const asset_atlas_t *atlas, const m
             uint32_t dst = offs[sc->layer]++;
             b.sprite_ents[dst] = ent;
             b.sprites2d[dst] = (render_sprite_inst_t){
-                .pos   = vec2f(wt.x, wt.y),
+                .pos   = wt.position,
                 .size  = vec_scale(vec2f(psz), wt.scale),
                 .pivot = sp->pivot,
                 .uv    = uv,
-                .rot   = wt.rot,
+                .rot   = wt.rotation,
                 .color = sc->color,
             };
         }

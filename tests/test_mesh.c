@@ -298,8 +298,8 @@ int main(void) {
 
         /* Fit collider3d to offset pyramid bounds [2..6, 0..8, 1..5] */
         collider3d col = mesh_fit_collider3d(pyr, 0x04U, false);
-        TEST_ASSERT(feq(col.half_x, 2.0f) && feq(col.half_y, 4.0f) && feq(col.half_z, 2.0f), "fitted half extents (2, 4, 2)");
-        TEST_ASSERT(feq(col.off_x,  4.0f) && feq(col.off_y,  4.0f) && feq(col.off_z,  3.0f), "fitted center offset (4, 4, 3)");
+        TEST_ASSERT(feq(col.half_extents.x, 2.0f) && feq(col.half_extents.y, 4.0f) && feq(col.half_extents.z, 2.0f), "fitted half extents (2, 4, 2)");
+        TEST_ASSERT(feq(col.offset.x,       4.0f) && feq(col.offset.y,       4.0f) && feq(col.offset.z,       3.0f), "fitted center offset (4, 4, 3)");
         TEST_ASSERT(col.mask == 0x04U && col.shape == COLLIDER_BOX, "fitted mask and COLLIDER_BOX");
 
         /* Verify ECS mesh3d component reflection and default values */
@@ -307,7 +307,7 @@ int main(void) {
         ecs_set_world(world);
 
         entity_handle_t ent = ecs_spawn();
-        trans3d t3 = { .x = 10.0f, .y = 0.0f, .z = 0.0f, .scale_x = 1.0f, .scale_y = 1.0f, .scale_z = 1.0f };
+        trans3d t3 = trans3d(vec3f(10, 0, 0), quatf_id(), vec3f(1, 1, 1));
         ecs_add(ent, trans3d,    &t3);
         ecs_add(ent, mesh3d,     NULL);
         ecs_add(ent, collider3d, &col);

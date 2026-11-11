@@ -27,6 +27,19 @@ and provides fast O(1) ID lookups and O(N) name resolution.
 #define _RTYPE__Bool           TYPE_BOOL
 #define _RTYPE_char            TYPE_STR
 #define _RTYPE_entity_handle_t TYPE_ENTITY
+#define _RTYPE_vec2f           TYPE_VEC2F
+#define _RTYPE_vec3f           TYPE_VEC3F
+#define _RTYPE_vec4f           TYPE_VEC4F
+#define _RTYPE_vec2i           TYPE_VEC2I
+#define _RTYPE_vec3i           TYPE_VEC3I
+#define _RTYPE_vec4i           TYPE_VEC4I
+#define _RTYPE_aabb2f          TYPE_AABB2F
+#define _RTYPE_aabb3f          TYPE_AABB3F
+#define _RTYPE_aabb2i          TYPE_AABB2I
+#define _RTYPE_aabb3i          TYPE_AABB3I
+#define _RTYPE_mat3f           TYPE_MAT3F
+#define _RTYPE_mat4f           TYPE_MAT4F
+#define _RTYPE_quatf           TYPE_QUATF
 
 /* ============================================================================================== */
 /* >DEF STRUCT DEF GEN                                                                            */
@@ -54,22 +67,20 @@ and provides fast O(1) ID lookups and O(N) name resolution.
             .off_y   = 0.0f,
             .mask    = 0x00000001,
             .trigger = false,
-            ._pad    = ({0}),
+            ._pad    = {0},
         };
 */
 
-#define COMP(NAME)                      const NAME NAME##_def = {
-#define _FIELD_DEF_3(T, NAME,      DEF) .NAME = (DEF),
-#define _FIELD_DEF_4(T, NAME, CNT, DEF) .NAME = DEF,
-#define FIELD(...)                      VA_JOIN(_FIELD_DEF_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
-#define COMP_END(NAME)                  };
+#define COMP(NAME)               const NAME NAME##_def = {
+#define FIELD(T, NAME,      ...) .NAME = __VA_ARGS__,
+#define ARRAY(T, NAME, CNT, ...) .NAME = __VA_ARGS__,
+#define COMP_END(NAME)           };
 
 #include "components.def"
 
 #undef COMP_END
+#undef ARRAY
 #undef FIELD
-#undef _FIELD_DEF_4
-#undef _FIELD_DEF_3
 #undef COMP
 
 /* ============================================================================================== */
@@ -113,7 +124,8 @@ and provides fast O(1) ID lookups and O(N) name resolution.
         static const field_meta_t fields[] = {
 #define _FIELD_META_3(T, NAME,      DEF) { #NAME, #T, _RTYPE_##T, (uint16_t)offsetof(_curr_comp_t, NAME), (uint16_t)sizeof(((_curr_comp_t *)0)->NAME), 1     },
 #define _FIELD_META_4(T, NAME, CNT, DEF) { #NAME, #T, _RTYPE_##T, (uint16_t)offsetof(_curr_comp_t, NAME), (uint16_t)sizeof(((_curr_comp_t *)0)->NAME), (CNT) },
-#define FIELD(...)                       VA_JOIN(_FIELD_META_, VA_NARGS(__VA_ARGS__))(__VA_ARGS__)
+#define FIELD(T, NAME, ...)      _FIELD_META_3(T, NAME,      0)
+#define ARRAY(T, NAME, CNT, ...) _FIELD_META_4(T, NAME, CNT, 0)
 #define COMP_END(NAME)                                                                             \
     };                                                                                             \
         *out_cnt = (uint16_t)(sizeof(fields) / sizeof(*fields));                                   \
@@ -123,6 +135,7 @@ and provides fast O(1) ID lookups and O(N) name resolution.
 #include "components.def"
 
 #undef COMP_END
+#undef ARRAY
 #undef FIELD
 #undef _FIELD_META_4
 #undef _FIELD_META_3
@@ -153,11 +166,13 @@ static void _reflect_init_lazy(void) {
         };                                                                                         \
     } while (0);
 #define FIELD(...)
+#define ARRAY(...)
 #define COMP_END(NAME)
 
 #include "components.def"
 
 #undef COMP_END
+#undef ARRAY
 #undef FIELD
 #undef COMP
 }

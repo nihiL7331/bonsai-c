@@ -516,46 +516,30 @@ res_t ecs_remove_parent(entity_handle_t child) {
 }
 
 static inline trans2d _ecs_combine_trans2d(trans2d p, trans2d l) {
-    vec2f ls = vec_scale(vec2f(l.x, l.y), p.scale);
+    vec2f ls = vec_scale(l.position, p.scale);
 
-    if (p.rot != 0.0f) {
-        float c = cosf(p.rot), s = sinf(p.rot);
+    if (p.rotation != 0.0f) {
+        float c = cosf(p.rotation), s = sinf(p.rotation);
         ls      = vec2f(ls.x * c - ls.y * s, ls.x * s + ls.y * c);
     }
 
-    return (trans2d){
-        .x     = p.x     + ls.x,
-        .y     = p.y     + ls.y,
-        .rot   = p.rot   + l.rot,
-        .scale = p.scale * l.scale,
-    };
+    return trans2d(vec_add(p.position, ls), p.rotation + l.rotation, p.scale * l.scale);
 }
 
 static inline quatf _ecs_trans3d_quat(trans3d t) {
-    if (t.qx == 0.0f && t.qy == 0.0f && t.qz == 0.0f && t.qw == 0.0f)
+    if (t.rotation.x == 0.0f && t.rotation.y == 0.0f && t.rotation.z == 0.0f && t.rotation.w == 0.0f)
         return quatf_id();
-    return quatf(t.qx, t.qy, t.qz, t.qw);
+    return t.rotation;
 }
 
 static inline trans3d _ecs_combine_trans3d(trans3d p, trans3d l) {
     quatf pq     = _ecs_trans3d_quat(p);
     quatf lq     = _ecs_trans3d_quat(l);
-    vec3f scaled = vec_mul(vec3f(l.x, l.y, l.z), vec3f(p.scale_x, p.scale_y, p.scale_z));
+    vec3f scaled = vec_mul(l.position, p.scale);
     vec3f rot_p  = quatf_mul_vec3(pq, scaled);
     quatf wq     = quatf_mul(pq, lq);
 
-    return (trans3d){
-        .x       = p.x       + rot_p.x,
-        .y       = p.y       + rot_p.y,
-        .z       = p.z       + rot_p.z,
-        .qx      = wq.x,
-        .qy      = wq.y,
-        .qz      = wq.z,
-        .qw      = wq.w,
-        .scale_x = p.scale_x * l.scale_x,
-        .scale_y = p.scale_y * l.scale_y,
-        .scale_z = p.scale_z * l.scale_z,
-    };
+    return trans3d(vec_add(p.position, rot_p), wq, vec_mul(p.scale, l.scale));
 }
 
 bool ecs_get_world_trans2d(entity_handle_t e, trans2d *out) {

@@ -123,11 +123,7 @@ int main(void) {
 
     TEST_CASE("render_trans3d_mat4", "builds model matrices and handles zero quaternions") {
         /* zero quaternion orientation must default to identity rotation */
-        trans3d t_zero_q = {
-            .x = 10.0f, .y = 20.0f, .z = 30.0f,
-            .qx = 0.0f, .qy = 0.0f, .qz = 0.0f, .qw = 0.0f,
-            .scale_x = 2.0f, .scale_y = 3.0f, .scale_z = 4.0f,
-        };
+        trans3d t_zero_q = trans3d(vec3f(10.0f, 20.0f, 30.0f), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f(2.0f, 3.0f, 4.0f));
         mat4f m = render_trans3d_mat4(&t_zero_q);
 
         /* test translation */
@@ -162,14 +158,14 @@ int main(void) {
 
         /* spawn 3D mesh entity without any lights in the scene */
         entity_handle_t e1 = ecs_spawn();
-        trans3d t1 = { .x = 0, .y = 0, .z = -5, .scale_x = 1, .scale_y = 1, .scale_z = 1 };
+        trans3d t1 = trans3d(vec3f(0, 0, -5), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f(1, 1, 1));
         mesh3d  m1 = { .mesh_id = MESH_ID_CUBE, .tex_id = 0, .color = 0xFFFFFFFFU };
         ecs_add(e1, trans3d, &t1);
         ecs_add(e1, mesh3d,  &m1);
 
         /* spawn 2D sprite entity */
         entity_handle_t e2 = ecs_spawn();
-        trans2d  t2 = { .x = 10, .y = 20, .scale = 1.0f };
+        trans2d  t2 = trans2d(vec2f(10, 20), 0.0f, 1.0f);
         sprite2d s2 = { .id = ASSET_SPRITE_WHITE, .layer = 0, .color = 0xFF0000FFU };
         ecs_add(e2, trans2d,  &t2);
         ecs_add(e2, sprite2d, &s2);
@@ -208,35 +204,35 @@ int main(void) {
 
         /* Directional light 1: color red, travels along -Y */
         entity_handle_t ed1 = ecs_spawn();
-        trans3d td1 = { .x = 100, .y = 100, .z = 100 }; /* position ignored for dir */
+        trans3d td1 = trans3d(vec3f(100, 100, 100), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f)); /* position ignored for dir */
         light3d ld1 = { .type = LIGHT_DIR, .color = 0xFF0000FFU, .intensity = 1.0f };
         ecs_add(ed1, trans3d, &td1);
         ecs_add(ed1, light3d, &ld1);
 
         /* Directional light 2: color green */
         entity_handle_t ed2 = ecs_spawn();
-        trans3d td2 = { .x = -50, .y = 0, .z = 0 };
+        trans3d td2 = trans3d(vec3f(-50, 0, 0), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f));
         light3d ld2 = { .type = LIGHT_DIR, .color = 0x00FF00FFU, .intensity = 2.0f };
         ecs_add(ed2, trans3d, &td2);
         ecs_add(ed2, light3d, &ld2);
 
         /* Point light 1: pos <0, 0, 5> -> dist to cam = 5 (dist_sq = 25) */
         entity_handle_t ep1 = ecs_spawn();
-        trans3d tp1 = { .x = 0, .y = 0, .z = 5 };
+        trans3d tp1 = trans3d(vec3f(0, 0, 5), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f));
         light3d lp1 = { .type = LIGHT_POINT, .range = 15.0f, .intensity = 1.0f, .color = 0xFFFFFFFFU };
         ecs_add(ep1, trans3d, &tp1);
         ecs_add(ep1, light3d, &lp1);
 
         /* Point light 2: pos <0, 0, 8> -> dist to cam = 2 (dist_sq = 4) [CLOSEST POINT] */
         entity_handle_t ep2 = ecs_spawn();
-        trans3d tp2 = { .x = 0, .y = 0, .z = 8 };
+        trans3d tp2 = trans3d(vec3f(0, 0, 8), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f));
         light3d lp2 = { .type = LIGHT_POINT, .range = 10.0f, .intensity = 1.0f, .color = 0xFFFFFFFFU };
         ecs_add(ep2, trans3d, &tp2);
         ecs_add(ep2, light3d, &lp2);
 
         /* Spot light 1: pos <0, 0, 7> -> dist to cam = 3 (dist_sq = 9) */
         entity_handle_t es1 = ecs_spawn();
-        trans3d ts1 = { .x = 0, .y = 0, .z = 7 };
+        trans3d ts1 = trans3d(vec3f(0, 0, 7), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f));
         light3d ls1 = {
             .type = LIGHT_SPOT, .range = 12.0f, .intensity = 1.5f,
             .cone_in = 0.35f, .cone_out = 0.50f, .color = 0xFFFF00FFU
@@ -246,35 +242,35 @@ int main(void) {
 
         /* Point light 3: pos <0, 0, 0> -> dist to cam = 10 (dist_sq = 100) */
         entity_handle_t ep3 = ecs_spawn();
-        trans3d tp3 = { .x = 0, .y = 0, .z = 0 };
+        trans3d tp3 = trans3d(vec3f(0, 0, 0), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f));
         light3d lp3 = { .type = LIGHT_POINT, .range = 20.0f, .intensity = 1.0f };
         ecs_add(ep3, trans3d, &tp3);
         ecs_add(ep3, light3d, &lp3);
 
         /* Point light 4: pos <0, 0, 20> -> dist to cam = 10 (dist_sq = 100) */
         entity_handle_t ep4 = ecs_spawn();
-        trans3d tp4 = { .x = 0, .y = 0, .z = 20 };
+        trans3d tp4 = trans3d(vec3f(0, 0, 20), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f));
         light3d lp4 = { .type = LIGHT_POINT, .range = 20.0f, .intensity = 1.0f };
         ecs_add(ep4, trans3d, &tp4);
         ecs_add(ep4, light3d, &lp4);
 
         /* Spot light 2: pos <0, 0, 50> -> dist to cam = 40 (dist_sq = 1600) [RANK 7] */
         entity_handle_t es2 = ecs_spawn();
-        trans3d ts2 = { .x = 0, .y = 0, .z = 50 };
+        trans3d ts2 = trans3d(vec3f(0, 0, 50), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f));
         light3d ls2 = { .type = LIGHT_SPOT, .range = 50.0f, .intensity = 1.0f, .cone_in = 0.2f, .cone_out = 0.4f };
         ecs_add(es2, trans3d, &ts2);
         ecs_add(es2, light3d, &ls2);
 
         /* Point light 5: pos <0, 0, 100> -> dist to cam = 90 (dist_sq = 8100) [OUT OF TOP 8] */
         entity_handle_t ep5 = ecs_spawn();
-        trans3d tp5 = { .x = 0, .y = 0, .z = 100 };
+        trans3d tp5 = trans3d(vec3f(0, 0, 100), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f));
         light3d lp5 = { .type = LIGHT_POINT, .range = 10.0f };
         ecs_add(ep5, trans3d, &tp5);
         ecs_add(ep5, light3d, &lp5);
 
         /* Spot light 3: pos <0, 0, 200> -> dist to cam = 190 (dist_sq = 36100) [OUT OF TOP 8] */
         entity_handle_t es3 = ecs_spawn();
-        trans3d ts3 = { .x = 0, .y = 0, .z = 200 };
+        trans3d ts3 = trans3d(vec3f(0, 0, 200), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f_splat(0.0f));
         light3d ls3 = { .type = LIGHT_SPOT, .range = 10.0f };
         ecs_add(es3, trans3d, &ts3);
         ecs_add(es3, light3d, &ls3);
@@ -325,7 +321,7 @@ int main(void) {
 
         /* 3D mesh commands with unsorted (mesh_id, sprite_id) keys */
         entity_handle_t em1 = ecs_spawn();
-        trans3d tm = { .scale_x = 1, .scale_y = 1, .scale_z = 1 };
+        trans3d tm = trans3d(vec3f_splat(0.0f), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f(1, 1, 1));
         mesh3d  mm1 = { .mesh_id = MESH_ID_CUBE, .tex_id = 5 };
         ecs_add(em1, trans3d, &tm);
         ecs_add(em1, mesh3d,  &mm1);
@@ -342,7 +338,7 @@ int main(void) {
 
         /* 2D sprites with varying layers and flip masks */
         entity_handle_t es1 = ecs_spawn();
-        trans2d ts = { .scale = 1.0f };
+        trans2d ts = trans2d(vec2f_splat(0.0f), 0.0f, 1.0f);
         sprite2d ss1 = { .id = ASSET_SPRITE_WHITE, .layer = 100, .flip_mask = 0 };
         ecs_add(es1, trans2d,  &ts);
         ecs_add(es1, sprite2d, &ss1);
@@ -418,7 +414,7 @@ int main(void) {
 
         /* Meshes present but NULL meshes parameter returns EINVAL */
         entity_handle_t e3d = ecs_spawn();
-        trans3d tm = { .scale_x = 1, .scale_y = 1, .scale_z = 1 };
+        trans3d tm = trans3d(vec3f_splat(0.0f), quatf(0.0f, 0.0f, 0.0f, 0.0f), vec3f(1, 1, 1));
         mesh3d  mm = { .mesh_id = MESH_ID_CUBE };
         ecs_add(e3d, trans3d, &tm);
         ecs_add(e3d, mesh3d,  &mm);
@@ -426,7 +422,7 @@ int main(void) {
 
         /* Sprites present but NULL atlas parameter returns EINVAL */
         entity_handle_t e2d = ecs_spawn();
-        trans2d  ts = { .scale = 1.0f };
+        trans2d  ts = trans2d(vec2f_splat(0.0f), 0.0f, 1.0f);
         sprite2d ss = { .id = ASSET_SPRITE_WHITE };
         ecs_add(e2d, trans2d,  &ts);
         ecs_add(e2d, sprite2d, &ss);

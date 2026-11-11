@@ -107,12 +107,12 @@ int main(void) {
     TEST_CASE("ecs_add_custom", "copies explicit values into dense pool") {
         reset_world();
         entity_handle_t e   = ecs_spawn();
-        trans2d         val = { .x = 12.5f, .y = 34.75f, .rot = 1.0f, .scale = 2.0f };
+        trans2d         val = trans2d(vec2f(12.5f, 34.75f), 1.0f, 2.0f);
         trans2d        *t   = ecs_add(e, trans2d, &val);
 
         TEST_ASSERT(t != NULL,                             "ecs_add returned NULL");
-        TEST_ASSERT(t->x   == 12.5f && t->y     == 34.75f, "trans2d values not copied");
-        TEST_ASSERT(t->rot == 1.0f  && t->scale == 2.0f,   "trans2d values not copied");
+        TEST_ASSERT(t->position.x == 12.5f && t->position.y == 34.75f, "trans2d values not copied");
+        TEST_ASSERT(t->rotation   == 1.0f  && t->scale      == 2.0f,   "trans2d values not copied");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_add_default", "initializes reflection defaults when val=NULL") {
@@ -128,24 +128,24 @@ int main(void) {
     TEST_CASE("ecs_add_existing", "updates in-place when component already owned") {
         reset_world();
         entity_handle_t e    = ecs_spawn();
-        trans2d         val1 = { .x = 10.0f, .y = 20.0f, .rot = 0.0f, .scale = 1.0f };
-        trans2d         val2 = { .x = 99.0f, .y = 88.0f, .rot = 0.0f, .scale = 1.0f };
+        trans2d         val1 = trans2d(vec2f(10, 20), 0.0f, 1.0f);
+        trans2d         val2 = trans2d(vec2f(99, 88), 0.0f, 1.0f);
         trans2d        *t1   = ecs_add(e, trans2d, &val1);
         trans2d        *t2   = ecs_add(e, trans2d, &val2);
 
-        TEST_ASSERT(t1 == t2,                         "adding existing component must return same pointer");
-        TEST_ASSERT(t1->x == 99.0f && t1->y == 88.0f, "component values not updated in-place");
+        TEST_ASSERT(t1 == t2,                                           "adding existing component must return same pointer");
+        TEST_ASSERT(t1->position.x == 99.0f && t1->position.y == 88.0f, "component values not updated in-place");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_get_valid", "returns direct pointer to contiguous dense memory") {
         reset_world();
         entity_handle_t e     = ecs_spawn();
         trans2d        *added = ecs_add(e, trans2d, NULL);
-        added->x = 55.0f;
+        added->position.x = 55.0f;
 
         trans2d *got = ecs_get(e, trans2d);
-        TEST_ASSERT(got    == added, "ecs_get pointer mismatch");
-        TEST_ASSERT(got->x == 55.0f, "ecs_get value mismatch");
+        TEST_ASSERT(got             == added, "ecs_get pointer mismatch");
+        TEST_ASSERT(got->position.x == 55.0f, "ecs_get value mismatch");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_get_missing", "returns NULL on unowned component or dead handle") {
@@ -178,9 +178,9 @@ int main(void) {
         entity_handle_t e2 = ecs_spawn();
         entity_handle_t e3 = ecs_spawn();
 
-        trans2d t1 = { .x = 1.0f, .y = 0.0f, .rot = 0.0f, .scale = 1.0f };
-        trans2d t2 = { .x = 2.0f, .y = 0.0f, .rot = 0.0f, .scale = 1.0f };
-        trans2d t3 = { .x = 3.0f, .y = 0.0f, .rot = 0.0f, .scale = 1.0f };
+        trans2d t1 = trans2d(vec2f(1, 0), 0.0f, 1.0f);
+        trans2d t2 = trans2d(vec2f(2, 0), 0.0f, 1.0f);
+        trans2d t3 = trans2d(vec2f(3, 0), 0.0f, 1.0f);
 
         ecs_add(e1, trans2d, &t1);
         ecs_add(e2, trans2d, &t2);
@@ -195,12 +195,12 @@ int main(void) {
         uint16_t e3_idx = entity_idx(e3);
         uint16_t e3_dense = p->sparse[e3_idx];
 
-        TEST_ASSERT(p->cnt == 2U,                                            "pool count exp 2 after del");
-        TEST_ASSERT(!ecs_has(e2, trans2d),                                   "e2 must not have trans2d");
-        TEST_ASSERT(ecs_has(e1, trans2d) && ecs_get(e1, trans2d)->x == 1.0f, "e1 corrupted");
-        TEST_ASSERT(ecs_has(e3, trans2d) && ecs_get(e3, trans2d)->x == 3.0f, "e3 corrupted");
-        TEST_ASSERT(e3_dense == 1U,                                          "e3 dense index exp 1, got %u", e3_dense);
-        TEST_ASSERT(p->entities[e3_dense] == e3_idx,                         "backpointer mismatch");
+        TEST_ASSERT(p->cnt == 2U,                                                     "pool count exp 2 after del");
+        TEST_ASSERT(!ecs_has(e2, trans2d),                                            "e2 must not have trans2d");
+        TEST_ASSERT(ecs_has(e1, trans2d) && ecs_get(e1, trans2d)->position.x == 1.0f, "e1 corrupted");
+        TEST_ASSERT(ecs_has(e3, trans2d) && ecs_get(e3, trans2d)->position.x == 3.0f, "e3 corrupted");
+        TEST_ASSERT(e3_dense == 1U,                                                   "e3 dense index exp 1, got %u", e3_dense);
+        TEST_ASSERT(p->entities[e3_dense] == e3_idx,                                  "backpointer mismatch");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_cmd_growth", "preserves removals through deferred buffer growth") {
@@ -269,7 +269,7 @@ int main(void) {
         ecs_add(e1, rb2d,       NULL);
         ecs_add(e1, tag,        NULL);
 
-        trans2d custom_t = { .x = 99.0f, .y = -42.0f, .rot = 0.5f, .scale = 2.0f };
+        trans2d custom_t = trans2d(vec2f(99, -42), 0.5f, 2.0f);
         ecs_add(e2, trans2d,    &custom_t);
         ecs_add(e2, sprite2d,   NULL);
         ecs_add(e2, collider2d, NULL);
@@ -285,9 +285,9 @@ int main(void) {
         TEST_ASSERT(v6.ents[0] == e2, "6-comp query matched wrong entity");
 
         const trans2d *fast_t = ecs_get_fast(w, v6.ents[0], trans2d);
-        TEST_ASSERT(fast_t != NULL,        "ecs_get_fast returned NULL");
-        TEST_ASSERT(fast_t->x == 99.0f,    "ecs_get_fast x mismatch");
-        TEST_ASSERT(fast_t->y == -42.0f,   "ecs_get_fast y mismatch");
+        TEST_ASSERT(fast_t != NULL,               "ecs_get_fast returned NULL");
+        TEST_ASSERT(fast_t->position.x == 99.0f,  "ecs_get_fast x mismatch");
+        TEST_ASSERT(fast_t->position.y == -42.0f, "ecs_get_fast y mismatch");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_query_exclude", "filters out entities matching without_mask") {
@@ -352,8 +352,8 @@ int main(void) {
         entity_handle_t e1 = ecs_spawn();
         entity_handle_t e2 = ecs_spawn();
 
-        trans2d t1 = { .x = 10.0f, .y = 20.0f, .rot = 0.0f, .scale = 1.0f };
-        trans2d t2 = { .x = 30.0f, .y = 40.0f, .rot = 1.0f, .scale = 2.0f };
+        trans2d t1 = trans2d(vec2f(10, 20), 0.0f, 1.0f);
+        trans2d t2 = trans2d(vec2f(30, 40), 1.0f, 2.0f);
         ecs_add(e1, trans2d,  &t1);
         ecs_add(e1, sprite2d, NULL);
         ecs_add(e2, trans2d,  &t2);
@@ -361,37 +361,37 @@ int main(void) {
         TEST_ASSERT(ecs_world_snapshot() == OK, "ecs_world_snapshot failed");
 
         /* mutate e1, destroy e2, spawn e3, and sync */
-        ecs_get(e1, trans2d)->x = 999.0f;
+        ecs_get(e1, trans2d)->position.x = 999.0f;
         ecs_add(e1, rb2d, NULL);
         ecs_destroy(e2);
         entity_handle_t e3 = ecs_spawn();
         ecs_add(e3, tag, NULL);
         ecs_sync();
 
-        TEST_ASSERT(ecs_get(e1, trans2d)->x == 999.0f, "expected mutated e1.x == 999");
-        TEST_ASSERT(ecs_has(e1, rb2d),                 "expected e1 to own rb2d before rollback");
-        TEST_ASSERT(!ecs_is_alive(e2),                 "expected e2 dead before rollback");
-        TEST_ASSERT(ecs_is_alive(e3),                  "expected e3 alive before rollback");
+        TEST_ASSERT(ecs_get(e1, trans2d)->position.x == 999.0f, "expected mutated e1.x == 999");
+        TEST_ASSERT(ecs_has(e1, rb2d),                          "expected e1 to own rb2d before rollback");
+        TEST_ASSERT(!ecs_is_alive(e2),                          "expected e2 dead before rollback");
+        TEST_ASSERT(ecs_is_alive(e3),                           "expected e3 alive before rollback");
 
         /* first rollback */
-        TEST_ASSERT(ecs_world_rollback() == OK, "first ecs_world_rollback failed");
-        TEST_ASSERT(w->mgr.alive_cnt == 2U,             "alive_cnt mismatch after rollback");
-        TEST_ASSERT(ecs_is_alive(e1),                   "e1 must be alive after rollback");
-        TEST_ASSERT(ecs_is_alive(e2),                   "e2 must be restored alive after rollback");
-        TEST_ASSERT(!ecs_is_alive(e3),                  "e3 must not exist after rollback");
-        TEST_ASSERT(!ecs_has(e1, rb2d),                 "e1 must not own rb2d after rollback");
-        TEST_ASSERT(ecs_has(e1, sprite2d),              "e1 must still own sprite2d after rollback");
-        TEST_ASSERT(ecs_get(e1, trans2d)->x == 10.0f,   "e1.x not restored to 10.0f");
-        TEST_ASSERT(ecs_get(e2, trans2d)->x == 30.0f,   "e2.x not restored to 30.0f");
+        TEST_ASSERT(ecs_world_rollback() == OK,                "first ecs_world_rollback failed");
+        TEST_ASSERT(w->mgr.alive_cnt == 2U,                    "alive_cnt mismatch after rollback");
+        TEST_ASSERT(ecs_is_alive(e1),                          "e1 must be alive after rollback");
+        TEST_ASSERT(ecs_is_alive(e2),                          "e2 must be restored alive after rollback");
+        TEST_ASSERT(!ecs_is_alive(e3),                         "e3 must not exist after rollback");
+        TEST_ASSERT(!ecs_has(e1, rb2d),                        "e1 must not own rb2d after rollback");
+        TEST_ASSERT(ecs_has(e1, sprite2d),                     "e1 must still own sprite2d after rollback");
+        TEST_ASSERT(ecs_get(e1, trans2d)->position.x == 10.0f, "e1.x not restored to 10.0f");
+        TEST_ASSERT(ecs_get(e2, trans2d)->position.x == 30.0f, "e2.x not restored to 30.0f");
 
         /* queue unsynced deferred commands and mutate again, then rollback a 2nd time */
         ecs_destroy(e1);
         ecs_del(e2, trans2d);
-        TEST_ASSERT(w->cmd_cnt == 2U,                   "expected 2 queued deferred commands");
-        TEST_ASSERT(ecs_world_rollback() == OK,         "second repeated ecs_world_rollback failed");
-        TEST_ASSERT(w->cmd_cnt == 0U,                   "rollback must discard pending deferred cmds");
-        TEST_ASSERT(ecs_is_alive(e1),                   "e1 must be alive after 2nd rollback");
-        TEST_ASSERT(ecs_get(e2, trans2d)->y == 40.0f,   "e2.y not intact after 2nd rollback");
+        TEST_ASSERT(w->cmd_cnt == 2U,                          "expected 2 queued deferred commands");
+        TEST_ASSERT(ecs_world_rollback() == OK,                "second repeated ecs_world_rollback failed");
+        TEST_ASSERT(w->cmd_cnt == 0U,                          "rollback must discard pending deferred cmds");
+        TEST_ASSERT(ecs_is_alive(e1),                          "e1 must be alive after 2nd rollback");
+        TEST_ASSERT(ecs_get(e2, trans2d)->position.y == 40.0f, "e2.y not intact after 2nd rollback");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_snap_replace", "replaces snapshot after removal and index reuse") {
@@ -529,9 +529,9 @@ int main(void) {
         entity_handle_t child  = ecs_spawn();
 
         /* root at (10, 20), rotated +90 deg (PI/2), scale 2.0 */
-        trans2d tr = { .x = 10.0f, .y = 20.0f, .rot = 1.57079632679f, .scale = 2.0f };
+        trans2d tr = trans2d(vec2f(10, 20), GMATH_HALFPI, 2.0f);
         /* child at local (3, 0), rot 0.5, scale 0.5 */
-        trans2d tc = { .x = 3.0f,  .y = 0.0f,  .rot = 0.5f,           .scale = 0.5f };
+        trans2d tc = trans2d(vec2f(3, 0), 0.5f, 0.5f);
 
         ecs_add(root,  trans2d, &tr);
         ecs_add(child, trans2d, &tc);
@@ -543,10 +543,10 @@ int main(void) {
         TEST_ASSERT(ecs_get_world_trans(child, &wt), "ecs_get_world_trans2d failed");
 
         /* local (3, 0) scaled by 2 -> (6, 0), rotated +90 deg -> (0, 6), + (10, 20) = (10, 26) */
-        TEST_ASSERT(ABS(wt.x     - 10.0f) < 1e-4f, "expected world x ~ 10.0, got %.4f", wt.x);
-        TEST_ASSERT(ABS(wt.y     - 26.0f) < 1e-4f, "expected world y ~ 26.0, got %.4f", wt.y);
-        TEST_ASSERT(ABS(wt.scale - 1.0f)  < 1e-4f, "expected world scale ~ 1.0, got %.4f", wt.scale);
-        TEST_ASSERT(ABS(wt.rot   - (tr.rot + tc.rot)) < 1e-4f, "world rot mismatch");
+        TEST_ASSERT(ABS(wt.position.x - 10.0f)                     < 1e-4f, "expected world x ~ 10.0, got %.4f", wt.position.x);
+        TEST_ASSERT(ABS(wt.position.y - 26.0f)                     < 1e-4f, "expected world y ~ 26.0, got %.4f", wt.position.y);
+        TEST_ASSERT(ABS(wt.scale - 1.0f)                           < 1e-4f, "expected world scale ~ 1.0, got %.4f", wt.scale);
+        TEST_ASSERT(ABS(wt.rotation - (tr.rotation + tc.rotation)) < 1e-4f, "world rot mismatch");
     } TEST_CASE_END();
 
     TEST_CASE("ecs_world_trans3d", "accumulates 3D pos, quatf, and scale down hier") {
@@ -556,16 +556,8 @@ int main(void) {
 
         /* 90 deg rotation around Z axis: q = (0, 0, sin(45 deg), cos(45 deg)) */
         quatf   qz90 = quatf_axis_angle(vec3f(0.0f, 0.0f, 1.0f), 1.57079632679f);
-        trans3d tp   = {
-            .x = 5.0f, .y = 10.0f, .z = 15.0f,
-            .qx = qz90.x, .qy = qz90.y, .qz = qz90.z, .qw = qz90.w,
-            .scale_x = 2.0f, .scale_y = 2.0f, .scale_z = 3.0f,
-        };
-        trans3d tc = {
-            .x = 4.0f, .y = 0.0f, .z = 2.0f,
-            .qx = 0.0f, .qy = 0.0f, .qz = 0.0f, .qw = 1.0f,
-            .scale_x = 0.5f, .scale_y = 1.0f, .scale_z = 1.0f,
-        };
+        trans3d tp = trans3d(vec3f(5, 10, 15), qz90, vec3f(2, 2, 3));
+        trans3d tc = trans3d(vec3f(4, 0, 2), quatf_id(), vec3f(0.5f, 1, 1));
 
         ecs_add(parent, trans3d, &tp);
         ecs_add(child,  trans3d, &tc);
@@ -575,10 +567,10 @@ int main(void) {
         TEST_ASSERT(ecs_get_world_trans(child, &wt), "ecs_get_world_trans3d failed");
 
         /* local (4, 0, 2) scaled by (2, 2, 3) -> (8, 0, 6), rot +90Z -> (0, 8, 6), + (5, 10, 15) = (5, 18, 21) */
-        TEST_ASSERT(ABS(wt.x       - 5.0f)  < 1e-4f, "expected world x ~ 5.0, got %.4f",  wt.x);
-        TEST_ASSERT(ABS(wt.y       - 18.0f) < 1e-4f, "expected world y ~ 18.0, got %.4f", wt.y);
-        TEST_ASSERT(ABS(wt.z       - 21.0f) < 1e-4f, "expected world z ~ 21.0, got %.4f", wt.z);
-        TEST_ASSERT(ABS(wt.scale_x - 1.0f)  < 1e-4f, "expected world scale_x ~ 1.0, got %.4f", wt.scale_x);
+        TEST_ASSERT(ABS(wt.position.x - 5.0f)  < 1e-4f, "expected world x ~ 5.0, got %.4f",  wt.position.x);
+        TEST_ASSERT(ABS(wt.position.y - 18.0f) < 1e-4f, "expected world y ~ 18.0, got %.4f", wt.position.y);
+        TEST_ASSERT(ABS(wt.position.z - 21.0f) < 1e-4f, "expected world z ~ 21.0, got %.4f", wt.position.z);
+        TEST_ASSERT(ABS(wt.scale.x    - 1.0f)  < 1e-4f, "expected world scale_x ~ 1.0, got %.4f", wt.scale.x);
     } TEST_CASE_END();
 
     ecs_set_world(NULL);

@@ -84,6 +84,19 @@ int main(void) {
             [TYPE_BOOL]   = sizeof(bool),
             [TYPE_STR]    = sizeof(char),
             [TYPE_ENTITY] = sizeof(entity_handle_t),
+            [TYPE_VEC2F]  = sizeof(vec2f),
+            [TYPE_VEC3F]  = sizeof(vec3f),
+            [TYPE_VEC4F]  = sizeof(vec4f),
+            [TYPE_VEC2I]  = sizeof(vec2i),
+            [TYPE_VEC3I]  = sizeof(vec3i),
+            [TYPE_VEC4I]  = sizeof(vec4i),
+            [TYPE_AABB2F] = sizeof(aabb2f),
+            [TYPE_AABB3F] = sizeof(aabb3f),
+            [TYPE_AABB2I] = sizeof(aabb2i),
+            [TYPE_AABB3I] = sizeof(aabb3i),
+            [TYPE_MAT3F]  = sizeof(mat3f),
+            [TYPE_MAT4F]  = sizeof(mat4f),
+            [TYPE_QUATF]  = sizeof(quatf),
         };
         _Static_assert(ARR_CNT(type_elem_szs) == TYPE_CNT, "type_elem_szs arr is out of sync with reflect_type_t");
         for (size_t i = 0; i < TYPE_CNT; ++i) TEST_ASSERT(type_elem_szs[i], "reflect_type_t enum %zu has no size defined in type_elem_szs arr", i);
@@ -107,9 +120,9 @@ int main(void) {
         if (meta && meta->def_val) {
             trans3d value;
             memcpy(&value, meta->def_val, sizeof(value));
-            TEST_ASSERT(value.qw == 0.0f && value.qx == 0.0f && value.qy == 0.0f && value.qz == 0.0f,
-                        "default quaternion matches documented zero sentinel");
-            TEST_ASSERT(value.scale_x == 1.0f && value.scale_y == 1.0f && value.scale_z == 1.0f,
+            TEST_ASSERT(value.rotation.w == 1.0f && value.rotation.x == 0.0f && value.rotation.y == 0.0f && value.rotation.z == 0.0f,
+                        "default quaternion matches documented identity");
+            TEST_ASSERT(value.scale.x == 1.0f && value.scale.y == 1.0f && value.scale.z == 1.0f,
                         "default 3D scale is one");
         }
         meta = reflect_comp_by_id(COMP_tag);

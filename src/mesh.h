@@ -368,11 +368,5 @@ static inline collider3d mesh_fit_collider3d(const mesh_t *mesh, uint32_t mask, 
     vec3f half   = vec_scale(aabb_size(mesh->bounds), 0.5f);
     vec3f center = aabb_center(mesh->bounds);
 
-    return (collider3d){
-        .half_x  = half.x,   .half_y = half.y,   .half_z = half.z,
-        .off_x   = center.x, .off_y  = center.y, .off_z  = center.z,
-        .mask    = mask,
-        .trigger = trigger,
-        .shape   = COLLIDER_BOX,
-    };
+    return collider3d(half, center, mask, trigger, COLLIDER_BOX);
 }

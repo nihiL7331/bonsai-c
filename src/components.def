@@ -10,8 +10,8 @@ reflection metadata tables, and default instances.
 
 Syntax:
     COMP(name)
-        FIELD(type, name, default_value)            -- Scalar field
-        FIELD(type, name, count, default_value)     -- Fixed-size array field
+        FIELD(type, name,        default_value)     -- Scalar/struct field
+        ARRAY(type, name, count, default_value)     -- Fixed-size array field
     COMP_END(name)
 
 All components MUST be POD with zero heap pointers.
@@ -28,16 +28,15 @@ trans2d
 
 2D spatial transform component.
 Stores:
-- 2D position   `x`, `y` (in world units, default: <0.0f, 0.0f>)
-- rotation      `rot`    (in radians,     default: 0.0f)
-- uniform scale `scale`  (unitless,       default: 1.0f)
+- `position` (in world units, default: <0.0f, 0.0f>)
+- `rotation` (in radians,     default: 0.0f)
+- `scale`    (unitless,       default: 1.0f)
 ====================
 */
 COMP(trans2d)
-    FIELD(float, x,     0.0f)
-    FIELD(float, y,     0.0f)
-    FIELD(float, rot,   0.0f)
-    FIELD(float, scale, 1.0f)
+    FIELD(vec2f, position, {{ 0.0f, 0.0f }})
+    FIELD(float, rotation, 0.0f)
+    FIELD(float, scale,    1.0f)
 COMP_END(trans2d)
 
 /*
@@ -46,22 +45,15 @@ trans3d
 
 3D spatial transform component.
 Stores:
-- 3D position    `x`,  `y`,  `z`        (in world units,        default: <0, 0, 0>)
-- orientation    `qx`, `qy`, `qz`, `qw` (normalized quaternion, default: <0, 0, 0, 0>)
-- per-axis scale `scale_x/y/z`          (unitless,              default: 1.0f)
+- `posiiton` (in world units,        default: <0, 0, 0>)
+- `rotation` (normalized quaternion, default: <0, 0, 0, 1>)
+- `scale`    (unitless,              default: <1, 1, 1>)
 ====================
 */
 COMP(trans3d)
-    FIELD(float, x,       0.0f)
-    FIELD(float, y,       0.0f)
-    FIELD(float, z,       0.0f)
-    FIELD(float, qx,      0.0f)
-    FIELD(float, qy,      0.0f)
-    FIELD(float, qz,      0.0f)
-    FIELD(float, qw,      0.0f)
-    FIELD(float, scale_x, 1.0f)
-    FIELD(float, scale_y, 1.0f)
-    FIELD(float, scale_z, 1.0f)
+    FIELD(vec3f, position, {{0.0f, 0.0f, 0.0f}})
+    FIELD(quatf, rotation, {{0.0f, 0.0f, 0.0f, 1.0f }})
+    FIELD(vec3f, scale,    {{1.0f, 1.0f, 1.0f }})
 COMP_END(trans3d)
 
 /* ============================================================================================== */
@@ -121,7 +113,7 @@ Stores:
 */
 COMP(light3d)
     FIELD(uint8_t,  type,      1)
-    FIELD(uint8_t, _pad, 3,    {0})
+    ARRAY(uint8_t, _pad, 3,    {0})
     FIELD(uint32_t, color,     0xFFFFFFFF)
     FIELD(float,    intensity, 1.0f)
     FIELD(float,    range,     10.0f)
@@ -147,14 +139,12 @@ Stores:
 ====================
 */
 COMP(collider2d)
-    FIELD(float,    half_x,     0.0f)
-    FIELD(float,    half_y,     0.0f)
-    FIELD(float,    off_x,      0.0f)
-    FIELD(float,    off_y,      0.0f)
-    FIELD(uint32_t, mask,       0x00000001)
-    FIELD(bool,     trigger,    false)
-    FIELD(uint8_t,  shape,      0)
-    FIELD(uint8_t,  _pad,    2, {0})
+    FIELD(vec2f,    half_extents, {{ 0.0f, 0.0f }})
+    FIELD(vec2f,    offset,       {{ 0.0f, 0.0f }})
+    FIELD(uint32_t, mask,         0x00000001)
+    FIELD(bool,     trigger,      false)
+    FIELD(uint8_t,  shape,        0)
+    ARRAY(uint8_t,  _pad, 2,      {0})
 COMP_END(collider2d)
 
 /*
@@ -171,16 +161,12 @@ Stores:
 ====================
 */
 COMP(collider3d)
-    FIELD(float,    half_x,     0.0f)
-    FIELD(float,    half_y,     0.0f)
-    FIELD(float,    half_z,     0.0f)
-    FIELD(float,    off_x,      0.0f)
-    FIELD(float,    off_y,      0.0f)
-    FIELD(float,    off_z,      0.0f)
-    FIELD(uint32_t, mask,       0x00000001)
-    FIELD(bool,     trigger,    false)
-    FIELD(uint8_t,  shape,      0)
-    FIELD(uint8_t, _pad,     2, {0})
+    FIELD(vec3f,    half_extents, {{ 0.0f, 0.0f, 0.0f }})
+    FIELD(vec3f,    offset,       {{ 0.0f, 0.0f, 0.0f }})
+    FIELD(uint32_t, mask,         0x00000001)
+    FIELD(bool,     trigger,      false)
+    FIELD(uint8_t,  shape,        0)
+    ARRAY(uint8_t, _pad, 2,       {0})
 COMP_END(collider3d)
 
 /*
@@ -196,11 +182,10 @@ Stores:
 ====================
 */
 COMP(rb2d)
-    FIELD(float, vel_x,       0.0f)
-    FIELD(float, vel_y,       0.0f)
-    FIELD(float, angular_vel, 0.0f)
-    FIELD(float, inv_mass,    1.0f)
-    FIELD(float, drag,        0.0f)
+    FIELD(vec2f, velocity,         {{ 0.0f, 0.0f }})
+    FIELD(float, angular_velocity, 0.0f)
+    FIELD(float, inv_mass,         1.0f)
+    FIELD(float, drag,             0.0f)
 COMP_END(rb2d)
 
 /*
@@ -217,15 +202,11 @@ Stores:
 ====================
 */
 COMP(rb3d)
-    FIELD(float, vel_x,     0.0f)
-    FIELD(float, vel_y,     0.0f)
-    FIELD(float, vel_z,     0.0f)
-    FIELD(float, ang_vel_x, 0.0f)
-    FIELD(float, ang_vel_y, 0.0f)
-    FIELD(float, ang_vel_z, 0.0f)
-    FIELD(float, inv_mass,  1.0f)
-    FIELD(float, drag,      0.0f)
-    FIELD(float, ang_drag,  0.0f)
+    FIELD(vec3f, velocity,         {{ 0.0f, 0.0f, 0.0f }})
+    FIELD(vec3f, angular_velocity, {{ 0.0f, 0.0f, 0.0f }})
+    FIELD(float, inv_mass,         1.0f)
+    FIELD(float, drag,             0.0f)
+    FIELD(float, ang_drag,         0.0f)
 COMP_END(rb3d)
 
 /* ============================================================================================== */
@@ -242,7 +223,7 @@ Stores:
 ====================
 */
 COMP(tag)
-    FIELD(char, name, 32, "")
+    ARRAY(char, name, 32, "")
 COMP_END(tag)
 
 /*

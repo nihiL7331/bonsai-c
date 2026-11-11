@@ -241,14 +241,12 @@ res_t physics_step2d(ecs_world_t *world, float dt, float cell_sz, physics_events
 
             if (rb->drag > 0.0f) {
                 float damp = 1.0f / (1.0f + rb->drag * dt);
-                rb->vel_x *= damp;
-                rb->vel_y *= damp;
+                rb->velocity = vec_scale(rb->velocity, damp);
             }
 
-            trans2d *t = ecs_get_fast(w, ent, trans2d);
-            t->x      += rb->vel_x       * dt;
-            t->y      += rb->vel_y       * dt;
-            t->rot    += rb->angular_vel * dt;
+            trans2d *t   = ecs_get_fast(w, ent, trans2d);
+            t->position  = vec_add(t->position, vec_scale(rb->velocity, dt));
+            t->rotation += rb->angular_velocity * dt;
         }
     }
 
@@ -313,34 +311,26 @@ res_t physics_step2d(ecs_world_t *world, float dt, float cell_sz, physics_events
                 float inv_sum = 1.0f / im_sum;
 
                 if (im_a > 0.0f) {
-                    trans2d *ta = ecs_get_fast(w, ent_a, trans2d);
-                    float    sa = im_a * inv_sum;
-                    ta->x      -= normal.x * depth * sa;
-                    ta->y      -= normal.y * depth * sa;
+                    trans2d *ta  = ecs_get_fast(w, ent_a, trans2d);
+                    ta->position = vec_sub(ta->position, vec_scale(normal, depth * im_a * inv_sum));
                 }
                 if (im_b > 0.0f) {
-                    trans2d *tb = ecs_get_fast(w, ent_b, trans2d);
-                    float    sb = im_b * inv_sum;
-                    tb->x      += normal.x * depth * sb;
-                    tb->y      += normal.y * depth * sb;
+                    trans2d *tb  = ecs_get_fast(w, ent_b, trans2d);
+                    tb->position = vec_add(tb->position, vec_scale(normal, depth * im_b * inv_sum));
                 }
 
-                vec2f vel_a  = rb_a ? vec2f(rb_a->vel_x, rb_a->vel_y) : vec2f_splat(0);
-                vec2f vel_b  = rb_b ? vec2f(rb_b->vel_x, rb_b->vel_y) : vec2f_splat(0);
+                vec2f vel_a  = rb_a ? rb_a->velocity : vec2f_splat(0);
+                vec2f vel_b  = rb_b ? rb_b->velocity : vec2f_splat(0);
                 float rel_vn = vec_dot(vec_sub(vel_b, vel_a), normal);
 
                 if (rel_vn < 0.0f) {
                     float j = -rel_vn * inv_sum;
 
-                    if (rb_a && im_a > 0.0f) {
-                        rb_a->vel_x -= normal.x * j * im_a;
-                        rb_a->vel_y -= normal.y * j * im_a;
-                    }
+                    if (rb_a && im_a > 0.0f)
+                        rb_a->velocity = vec_sub(rb_a->velocity, vec_scale(normal, j * im_a));
 
-                    if (rb_b && im_b > 0.0f) {
-                        rb_b->vel_x += normal.x * j * im_b;
-                        rb_b->vel_y += normal.y * j * im_b;
-                    }
+                    if (rb_b && im_b > 0.0f)
+                        rb_b->velocity = vec_add(rb_b->velocity, vec_scale(normal, j * im_b));
                 }
             }
 
@@ -396,35 +386,21 @@ res_t physics_step3d(ecs_world_t *world, float dt, float cell_sz, physics_events
 
             if (rb->drag > 0.0f) {
                 float damp = 1.0f / (1.0f + rb->drag * dt);
-                rb->vel_x *= damp;
-                rb->vel_y *= damp;
-                rb->vel_z *= damp;
+                rb->velocity = vec_scale(rb->velocity, damp);
             }
 
             if (rb->ang_drag > 0.0f) {
                 float ang_damp = 1.0f / (1.0f + rb->ang_drag * dt);
-                rb->ang_vel_x *= ang_damp;
-                rb->ang_vel_y *= ang_damp;
-                rb->ang_vel_z *= ang_damp;
+                rb->angular_velocity = vec_scale(rb->angular_velocity, ang_damp);
             }
 
-            trans3d *t = ecs_get_fast(w, ent, trans3d);
-            t->x      += rb->vel_x * dt;
-            t->y      += rb->vel_y * dt;
-            t->z      += rb->vel_z * dt;
+            trans3d *t  = ecs_get_fast(w, ent, trans3d);
+            t->position = vec_add(t->position, vec_scale(rb->velocity, dt));
 
-            vec3f ang_vel_vec = vec3f(rb->ang_vel_x, rb->ang_vel_y, rb->ang_vel_z);
-            float ang_vel     = vec_len(ang_vel_vec);
+            float ang_vel = vec_len(rb->angular_velocity);
             if (ang_vel > 1e-6f) {
-                quatf q = (t->qx == 0.0f && t->qy == 0.0f && t->qz == 0.0f && t->qw == 0.0f)
-                          ? quatf_id()
-                          : quatf(t->qx, t->qy, t->qz, t->qw);
-                quatf dq = quatf_axis_angle(vec_norm(ang_vel_vec), ang_vel * dt);
-                q        = quatf_norm(quatf_mul(dq, q));
-                t->qx    = q.x;
-                t->qy    = q.y;
-                t->qz    = q.z;
-                t->qw    = q.w;
+                quatf dq    = quatf_axis_angle(vec_norm(rb->angular_velocity), ang_vel * dt);
+                t->rotation = quatf_norm(quatf_mul(dq, t->rotation));
             }
         }
     }
@@ -488,38 +464,26 @@ res_t physics_step3d(ecs_world_t *world, float dt, float cell_sz, physics_events
                 float inv_sum = 1.0f / im_sum;
 
                 if (im_a > 0.0f) {
-                    trans3d *ta = ecs_get_fast(w, ent_a, trans3d);
-                    float    sa = im_a * inv_sum;
-                    ta->x      -= normal.x * depth * sa;
-                    ta->y      -= normal.y * depth * sa;
-                    ta->z      -= normal.z * depth * sa;
+                    trans3d *ta  = ecs_get_fast(w, ent_a, trans3d);
+                    ta->position = vec_sub(ta->position, vec_scale(normal, depth * im_a * inv_sum));
                 }
                 if (im_b > 0.0f) {
-                    trans3d *tb = ecs_get_fast(w, ent_b, trans3d);
-                    float    sb = im_b * inv_sum;
-                    tb->x      += normal.x * depth * sb;
-                    tb->y      += normal.y * depth * sb;
-                    tb->z      += normal.z * depth * sb;
+                    trans3d *tb  = ecs_get_fast(w, ent_b, trans3d);
+                    tb->position = vec_add(tb->position, vec_scale(normal, depth * im_b * inv_sum));
                 }
 
-                vec3f vel_a  = rb_a ? vec3f(rb_a->vel_x, rb_a->vel_y, rb_a->vel_z) : vec3f_splat(0);
-                vec3f vel_b  = rb_b ? vec3f(rb_b->vel_x, rb_b->vel_y, rb_b->vel_z) : vec3f_splat(0);
+                vec3f vel_a  = rb_a ? rb_a->velocity : vec3f_splat(0);
+                vec3f vel_b  = rb_b ? rb_b->velocity : vec3f_splat(0);
                 float rel_vn = vec_dot(vec_sub(vel_b, vel_a), normal);
 
                 if (rel_vn < 0.0f) {
                     float j = -rel_vn * inv_sum;
 
-                    if (rb_a && im_a > 0.0f) {
-                        rb_a->vel_x -= normal.x * j * im_a;
-                        rb_a->vel_y -= normal.y * j * im_a;
-                        rb_a->vel_z -= normal.z * j * im_a;
-                    }
+                    if (rb_a && im_a > 0.0f)
+                        rb_a->velocity = vec_sub(rb_a->velocity, vec_scale(normal, j * im_a));
 
-                    if (rb_b && im_b > 0.0f) {
-                        rb_b->vel_x += normal.x * j * im_b;
-                        rb_b->vel_y += normal.y * j * im_b;
-                        rb_b->vel_z += normal.z * j * im_b;
-                    }
+                    if (rb_b && im_b > 0.0f)
+                        rb_b->velocity = vec_add(rb_b->velocity, vec_scale(normal, j * im_b));
                 }
             }
 
