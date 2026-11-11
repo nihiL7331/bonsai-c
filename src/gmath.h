@@ -24,6 +24,10 @@ Each type explicitly states its dimension count and scalar type in name.
 #include <stddef.h>
 #include <stdint.h>
 
+#define GMATH_HALFPI 1.57079633f
+#define GMATH_PI     3.14159265f
+#define GMATH_TAU    6.28318530f
+
 /* ============================================================================================== */
 /* >TYPEDEFS                                                                                      */
 /* ============================================================================================== */

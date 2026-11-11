@@ -6,7 +6,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define HALF_PI (3.14159265f * 0.5f)
 #define EPS 0.0001f
 
 static inline bool feq(float a, float b) {
@@ -119,14 +118,14 @@ int main(void) {
     } TEST_CASE_END();
 
     TEST_CASE("mat4f_rotz", "rotates vector 90 degrees around Z") {
-        mat4f r = mat4f_rotz(HALF_PI);
+        mat4f r = mat4f_rotz(GMATH_HALFPI);
         vec4f v = vec4f(1, 0, 0, 1);
         vec4f res = mat4f_mul_vec4f(r, v);
         TEST_ASSERT(feq(res.x, 0.0f) && feq(res.y, 1.0f), "exp (0.0, 1.0), got (%f, %f)", res.x, res.y);
     } TEST_CASE_END();
 
     TEST_CASE("mat4f_trans_2d", "combines pos, rot, and scale in 1 pass") {
-        mat4f m = mat4f_trans_2d(vec2f(10, 20), HALF_PI, 2.0f);
+        mat4f m = mat4f_trans_2d(vec2f(10, 20), GMATH_HALFPI, 2.0f);
 
         vec4f local = vec4f(1, 0, 0, 1);
         vec4f world = mat4f_mul_vec4f(m, local);
@@ -231,7 +230,7 @@ int main(void) {
 
     TEST_CASE("quatf_rotate", "rotates vector by 90 deg around Z") {
         vec3f z_axis = vec3f(0, 0, 1);
-        quatf q = quatf_axis_angle(z_axis, HALF_PI);
+        quatf q = quatf_axis_angle(z_axis, GMATH_HALFPI);
 
         vec3f v = vec3f(1, 0, 0);
         vec3f rotated = quatf_mul_vec3(q, v);
@@ -253,14 +252,14 @@ int main(void) {
     TEST_CASE("quatf_slerp", "interpolates orientation at midpoint (45 deg)") {
         vec3f z_axis = vec3f(0, 0, 1);
         quatf q0     = quatf_id();
-        quatf q1     = quatf_axis_angle(z_axis, HALF_PI);
+        quatf q1     = quatf_axis_angle(z_axis, GMATH_HALFPI);
 
         quatf mid = quatf_slerp(q0, q1, 0.5f);
         vec3f v   = vec3f(1, 0, 0);
         vec3f res = quatf_mul_vec3(mid, v);
 
-        float cos_45 = cosf(HALF_PI * 0.5f);
-        float sin_45 = sinf(HALF_PI * 0.5f);
+        float cos_45 = cosf(GMATH_HALFPI * 0.5f);
+        float sin_45 = sinf(GMATH_HALFPI * 0.5f);
         TEST_ASSERT(feq(res.x, cos_45) && feq(res.y, sin_45) && feq(res.z, 0.0f),
                     "slerp midpoint exp (%f, %f, 0), got (%f, %f, %f)", cos_45, sin_45, res.x, res.y, res.z);
     } TEST_CASE_END();

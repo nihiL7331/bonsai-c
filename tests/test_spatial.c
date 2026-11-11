@@ -11,8 +11,6 @@
 #define TEST_PERM_SZ    MB(32)
 #define TEST_SCRATCH_SZ MB(4)
 
-#define PI_F 3.14159265f
-
 static arena_t s_perm_arena;
 static arena_t s_scratch_arena;
 
@@ -200,8 +198,8 @@ int main(void) {
         ecs_add(e1, collider2d, &c1);
 
         entity_handle_t e2 = ecs_spawn();
-        trans2d    t2 = { .x      = 200.0f, .y      = 200.0f, .rot  = PI_F * 0.5f, .scale = 1.0f };
-        collider2d c2 = { .half_x = 20.0f,  .half_y = 10.0f,  .mask = 0x02                       };
+        trans2d    t2 = { .x      = 200.0f, .y      = 200.0f, .rot  = GMATH_HALFPI, .scale = 1.0f };
+        collider2d c2 = { .half_x = 20.0f,  .half_y = 10.0f,  .mask = 0x02                     };
         ecs_add(e2, trans2d,    &t2);
         ecs_add(e2, collider2d, &c2);
 
@@ -349,7 +347,7 @@ int main(void) {
         ecs_add(e1, trans3d,    &t1);
         ecs_add(e1, collider3d, &c1);
 
-        float half_ang = PI_F * 0.25f;
+        float half_ang = GMATH_HALFPI * 0.5f;
         entity_handle_t e2 = ecs_spawn();
         trans3d t2 = {
             .x       = 100.0f, .y       = 100.0f, .z       = 100.0f,

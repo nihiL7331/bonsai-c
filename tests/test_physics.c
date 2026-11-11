@@ -7,8 +7,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-#define PI_F 3.14159265f
-
 static arena_t s_perm_arena;
 static arena_t s_backup_arena;
 static arena_t s_scratch_arena;
@@ -78,7 +76,7 @@ int main(void) {
         ecs_add(e, trans3d, (&(trans3d){ .x = 0.0f, .y = 0.0f, .z = 0.0f, .scale_x = 1.0f, .scale_y = 1.0f, .scale_z = 1.0f }));
         ecs_add(e, rb3d,    (&(rb3d){
             .vel_x     = 30.0f, .vel_y     = 0.0f,  .vel_z     = -15.0f,
-            .ang_vel_x = 0.0f,  .ang_vel_y = 0.0f,  .ang_vel_z = PI_F,
+            .ang_vel_x = 0.0f,  .ang_vel_y = 0.0f,  .ang_vel_z = GMATH_PI,
             .inv_mass  = 1.0f,  .drag      = 0.5f,  .ang_drag  = 1.0f,
         }));
 
@@ -92,11 +90,11 @@ int main(void) {
         const rb3d    *rb = ecs_get(e, rb3d);
         TEST_ASSERT(fabsf(rb->vel_x - 20.0f)            < 1e-4f, "vel_x exp 20, got %.4f", rb->vel_x);
         TEST_ASSERT(fabsf(rb->vel_z - -10.0f)           < 1e-4f, "vel_z exp -10, got %.4f", rb->vel_z);
-        TEST_ASSERT(fabsf(rb->ang_vel_z - (PI_F * 0.5f)) < 1e-4f, "ang_vel_z exp PI/2, got %.4f", rb->ang_vel_z);
         TEST_ASSERT(fabsf(t->x - 20.0f)                 < 1e-4f, "x exp 20, got %.4f", t->x);
         TEST_ASSERT(fabsf(t->z - -10.0f)                < 1e-4f, "z exp -10, got %.4f", t->z);
+        TEST_ASSERT(fabsf(rb->ang_vel_z - GMATH_HALFPI) < 1e-4f, "ang_vel_z exp PI/2, got %.4f", rb->ang_vel_z);
 
-        quatf exp_q = quatf_axis_angle(vec3f(0.0f, 0.0f, 1.0f), PI_F * 0.5f);
+        quatf exp_q = quatf_axis_angle(vec3f(0, 0, 1), GMATH_HALFPI);
         TEST_ASSERT(fabsf(t->qz - exp_q.z) < 1e-4f, "qz exp %.4f, got %.4f", exp_q.z, t->qz);
         TEST_ASSERT(fabsf(t->qw - exp_q.w) < 1e-4f, "qw exp %.4f, got %.4f", exp_q.w, t->qw);
     } TEST_CASE_END();
