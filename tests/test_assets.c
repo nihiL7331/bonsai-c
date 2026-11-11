@@ -1,6 +1,7 @@
 #include "assets.h"
 #include "arena.h"
 #include "test.h"
+#include "stb_image.h"
 #include "stb_image_write.h"
 
 #include <math.h>
@@ -428,6 +429,31 @@ int main(void) {
         }
     } TEST_CASE_END();
 
+    TEST_CASE("image_rgba_bytes", "packs RGBA bytes into numeric engine colors") {
+        arena_init(&perm, arena_buf, sizeof(arena_buf));
+        asset_atlas_t atlas;
+        TEST_ASSERT(asset_atlas_init(&atlas, &perm, vec2i(32, 32), 16) == OK, "atlas initialized");
+        const unsigned char rgba[] = { 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0 };
+        int png_len = 0;
+        unsigned char *png = stbi_write_png_to_mem(rgba, 8, 2, 1, 4, &png_len);
+        TEST_ASSERT(png != NULL && png_len > 0, "external byte fixture encoded");
+        if (png) {
+            asset_sprite_id_t id = ASSET_SPRITE_WHITE;
+            res_t res = asset_load_image_mem(&atlas, png, (size_t)png_len, &id);
+            free(png);
+            TEST_ASSERT(res == OK, "external RGBA PNG loaded");
+            const asset_sprite_t *spr = asset_get_sprite(&atlas, id);
+            TEST_ASSERT(spr != NULL, "sprite registered");
+            if (res == OK && spr) {
+                TEST_ASSERT(asset_get_pixel(&atlas, spr->px.min) == 0x12345678U,
+                            "RGBA bytes must produce numeric 0x12345678");
+                vec2i second = vec2i(spr->px.min_x + 1, spr->px.min_y);
+                TEST_ASSERT(asset_get_pixel(&atlas, second) == 0x9ABCDEF0U,
+                            "second RGBA pixel must preserve channel order");
+            }
+        }
+    } TEST_CASE_END();
+
     TEST_CASE("image_load_mem", "decodes dynamic in-memory PNG and validates pixels") {
         arena_init(&perm, arena_buf, sizeof(arena_buf));
 
@@ -439,10 +465,17 @@ int main(void) {
             COLOR_RED,    COLOR_GREEN,   COLOR_YELLOW,  COLOR_WHITE,
             COLOR_MAGENTA, COLOR_BLACK,  COLOR_RED,     COLOR_BLUE,
         };
+        unsigned char rgba[sizeof(raw_pixels)];
+        for (size_t i = 0; i < ARR_CNT(raw_pixels); ++i) {
+            rgba[i * 4]     = (unsigned char)COLOR_R(raw_pixels[i]);
+            rgba[i * 4 + 1] = (unsigned char)COLOR_G(raw_pixels[i]);
+            rgba[i * 4 + 2] = (unsigned char)COLOR_B(raw_pixels[i]);
+            rgba[i * 4 + 3] = (unsigned char)COLOR_A(raw_pixels[i]);
+        }
 
         int png_len = 0;
         unsigned char *png_data = stbi_write_png_to_mem(
-            (const unsigned char *)raw_pixels,
+            rgba,
             4 * (int)sizeof(uint32_t),
             4, 2, 4,
             &png_len
@@ -524,7 +557,7 @@ int main(void) {
         asset_atlas_t atlas;
         asset_atlas_init(&atlas, &perm, vec2i(64, 64), 16);
 
-        uint32_t original[4] = { COLOR_RED, COLOR_RED, COLOR_RED, COLOR_RED };
+        unsigned char original[16] = { 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255 };
         int len1 = 0;
         unsigned char *png1 = stbi_write_png_to_mem((const unsigned char *)original, 2 * (int)sizeof(uint32_t), 2, 2, 4, &len1);
 
@@ -536,7 +569,7 @@ int main(void) {
         aabb2i px_before = spr_before->px;
 
         /* reload with blue pixels */
-        uint32_t replacement[4] = { COLOR_BLUE, COLOR_BLUE, COLOR_BLUE, COLOR_BLUE };
+        unsigned char replacement[16] = { 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255 };
         int len2 = 0;
         unsigned char *png2 = stbi_write_png_to_mem((const unsigned char *)replacement, 2 * (int)sizeof(uint32_t), 2, 2, 4, &len2);
 
@@ -558,6 +591,8 @@ int main(void) {
         res_t r_bad_sz = asset_reload_image_mem(&atlas, id, png3, (size_t)len3);
         free(png3);
         TEST_ASSERT(r_bad_sz == EINVAL, "mismatched dimension reload must return EINVAL");
+        TEST_ASSERT(asset_get_pixel(&atlas, spr_after->px.min) == COLOR_BLUE, "failed reload preserves prior pixel");
+        TEST_ASSERT(atlas.sprite_cnt == id + 1U, "reload never allocates another sprite");
     } TEST_CASE_END();
 
     TEST_CASE("palette_remap", "replaces colors and palettes across atlas") {
@@ -600,6 +635,9 @@ int main(void) {
 
     TEST_CASE("disk_io", "exports sprite/atlas and loads from file") {
         arena_init(&perm, arena_buf, sizeof(arena_buf));
+        _Alignas(CACHE_LINE_SZ) uint8_t scratch_buf[32 * 32 * 4];
+        arena_t scratch;
+        TEST_ASSERT(arena_init(&scratch, scratch_buf, sizeof(scratch_buf)) == OK, "scratch initialized");
 
         asset_atlas_t atlas;
         asset_atlas_init(&atlas, &perm, vec2i(32, 32), 16);
@@ -617,17 +655,30 @@ int main(void) {
         unlink(tmp_atlas_path);
 
         /* export sprite to PNG */
-        res_t r_exp = asset_export_sprite_png(&atlas, slot.id, tmp_sprite_path, true);
+        res_t r_exp = asset_export_sprite_png(&atlas, slot.id, tmp_sprite_path, true, &scratch);
         TEST_ASSERT(r_exp == OK, "export_sprite_png failed: %d", r_exp);
+        TEST_ASSERT(scratch.off == 0, "sprite export reclaims temporary scratch storage");
         TEST_ASSERT(access(tmp_sprite_path, F_OK) == 0, "exported sprite file must exist");
 
+        int width = 0, height = 0, channels = 0;
+        unsigned char *exported = stbi_load(tmp_sprite_path, &width, &height, &channels, 4);
+        TEST_ASSERT(exported != NULL && width == 4 && height == 2, "external decoder reads exported dimensions");
+        if (exported && width == 4 && height == 2) {
+            TEST_ASSERT(exported[0] == 255 && exported[1] == 0 && exported[2] == 0 && exported[3] == 255,
+                        "exported red pixel has standard RGBA byte order");
+            TEST_ASSERT(exported[16] == 0 && exported[17] == 255 && exported[18] == 0 && exported[19] == 255,
+                        "exported green row has standard RGBA byte order");
+        }
+        stbi_image_free(exported);
+
         /* export without overwrite should return EIO when file already exists */
-        res_t r_no_ow = asset_export_sprite_png(&atlas, slot.id, tmp_sprite_path, false);
+        res_t r_no_ow = asset_export_sprite_png(&atlas, slot.id, tmp_sprite_path, false, &scratch);
         TEST_ASSERT(r_no_ow == EIO, "overwrite=false on existing file must return EIO, got %d", r_no_ow);
 
         /* export master atlas to PNG */
-        res_t r_atlas_exp = asset_export_atlas_png(&atlas, tmp_atlas_path, true);
+        res_t r_atlas_exp = asset_export_atlas_png(&atlas, tmp_atlas_path, true, &scratch);
         TEST_ASSERT(r_atlas_exp == OK, "export_atlas_png failed: %d", r_atlas_exp);
+        TEST_ASSERT(scratch.off == 0, "atlas export reclaims temporary scratch storage");
         TEST_ASSERT(access(tmp_atlas_path, F_OK) == 0, "exported atlas file must exist");
 
         /* test loading exported non-square sprite back into atlas */
