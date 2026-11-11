@@ -14,6 +14,7 @@ Implements:
 #include "assets.h"
 #include "core.h"
 
+#include <limits.h>
 #include <math.h>
 #include <string.h>
 
@@ -758,10 +759,14 @@ static inline res_t _asset_ingest_decoded(asset_atlas_t *atlas, stbi_uc *pxs, ve
     res_t r = asset_atlas_alloc_slot(atlas, sz, &slot);
     if (r != OK) { stbi_image_free(pxs); return r; }
 
-    const uint32_t *src_pxs = (const uint32_t *)pxs;
     for (int32_t y = 0; y < sz.y; ++y) {
-        uint32_t *dst_row = _asset_slot_row(&slot, y);
-        memcpy(dst_row, &src_pxs[IDX_2D(0, y, sz.x)], (size_t)sz.x * sizeof(uint32_t));
+        const stbi_uc *src = pxs + (size_t)y * (size_t)sz.x * sizeof(uint32_t);
+        uint32_t      *dst = _asset_slot_row(&slot, y);
+
+        for (int32_t x = 0; x < sz.x; ++x) {
+            size_t off = (size_t)x * sizeof(uint32_t);
+            dst[x]     = COLOR_RGBA(src[off], src[off + 1U], src[off + 2U], src[off + 3U]);
+        }
     }
 
     stbi_image_free(pxs);
@@ -849,10 +854,14 @@ static inline res_t _asset_reload_decoded(asset_atlas_t *atlas, asset_sprite_id_
     vec2i  spr_sz = aabb_size(spr_px);
     if (sz.x != spr_sz.x || sz.y != spr_sz.y) { stbi_image_free(pxs); return EINVAL; }
 
-    const uint32_t *src_pxs = (const uint32_t *)pxs;
     for (int32_t y = 0; y < sz.y; ++y) {
-        uint32_t *dst_row = &atlas->pixels[IDX_2D(spr_px.min_x, spr_px.min_y + y, atlas->size.x)];
-        memcpy(dst_row, &src_pxs[IDX_2D(0, y, sz.x)], (size_t)sz.x * sizeof(uint32_t));
+        const stbi_uc *src = pxs + (size_t)y * (size_t)sz.x * sizeof(uint32_t);
+        uint32_t      *dst = &atlas->pixels[IDX_2D(spr_px.min_x, spr_px.min_y + y, atlas->size.x)];
+
+        for (int32_t x = 0; x < sz.x; ++x) {
+            size_t off = (size_t)x * sizeof(uint32_t);
+            dst[x]     = COLOR_RGBA(src[off], src[off + 1U], src[off + 2U], src[off + 3U]);
+        }
     }
 
     stbi_image_free(pxs);
@@ -938,33 +947,58 @@ static inline bool _asset_file_exists(const char *path) {
     return true;
 }
 
-res_t asset_export_sprite_png(const asset_atlas_t *atlas, asset_sprite_id_t id, const char *path, bool overwrite) {
-    ASSERT(atlas, "Attempted to export sprite to PNG from NULL asset_atlas (id: %" PRIu32 ", path: %s)",          id, path ? path : "NULL");
-    ASSERT(path,  "Attempted to export sprite to PNG with NULL path (atlas: %p, id: %" PRIu32 ")", (void *)atlas, id);
-    if   (!atlas || id >= atlas->sprite_cnt || !path) return EINVAL;
-    if   (!overwrite && _asset_file_exists(path))     return EIO;
+/* converts numeric atlas colors to RGBA bytes in borrowed scratch storage */
+static inline res_t _asset_export_rect_png(const asset_atlas_t *atlas, aabb2i rect, const char *path, arena_t *scratch) {
+    vec2i size = aabb_size(rect);
+    if (size.x <= 0 || size.y <= 0 || (size_t)size.x > INT_MAX / sizeof(uint32_t)) return EINVAL;
 
-    aabb2i spr_px = atlas->sprites[id].px;
-    vec2i  spr_sz = aabb_size(spr_px);
-    if (spr_sz.x <= 0 || spr_sz.y <= 0) return EINVAL;
+    size_t stride = (size_t)size.x * sizeof(uint32_t);
+    if ((size_t)size.y > SIZE_MAX / stride) return EINVAL;
+    size_t bytes = stride * (size_t)size.y;
 
-    const uint32_t *data         = &atlas->pixels[IDX_2D(spr_px.min_x, spr_px.min_y, atlas->size.x)];
-    int             stride_bytes = (int)atlas->size.x * (int)sizeof(uint32_t);
-    int ok                       = stbi_write_png(path, spr_sz.x, spr_sz.y, 4, data, stride_bytes);
+    arena_temp_t mark = arena_temp_begin(scratch);
+    uint8_t     *rgba = arena_alloc(scratch, bytes);
+    if (!rgba) { arena_temp_end(mark); return EOOM; }
 
+    for (int32_t y = 0; y < size.y; ++y) {
+        size_t   src_row = (size_t)(rect.min.y + y) * (size_t)atlas->size.x;
+        uint8_t *dst     = rgba + (size_t)y * stride;
+
+        for (int32_t x = 0; x < size.x; ++x) {
+            uint32_t color = atlas->pixels[src_row + (size_t)(rect.min_x + x)];
+            size_t   off   = (size_t)x * sizeof(uint32_t);
+
+            dst[off]      = (uint8_t)COLOR_R(color);
+            dst[off + 1U] = (uint8_t)COLOR_G(color);
+            dst[off + 2U] = (uint8_t)COLOR_B(color);
+            dst[off + 3U] = (uint8_t)COLOR_A(color);
+        }
+    }
+
+    int ok = stbi_write_png(path, size.x, size.y, 4, rgba, (int)stride);
+    arena_temp_end(mark);
     return ok ? OK : EIO;
 }
 
-res_t asset_export_atlas_png(const asset_atlas_t *atlas, const char *path, bool overwrite) {
-    ASSERT(atlas, "Attempted to export atlas to PNG from NULL asset_atlas (path: %s)", path ? path : "NULL");
-    ASSERT(path,  "Attempted to export atlas to PNG with NULL path (atlas: %p)", (void *)atlas);
-    if   (!atlas || !path)                        return EINVAL;
+res_t asset_export_sprite_png(const asset_atlas_t *atlas, asset_sprite_id_t id, const char *path, bool overwrite, arena_t *scratch) {
+    ASSERT(atlas,   "Attempted to export sprite to PNG from NULL asset_atlas (id: %" PRIu32 ", path: %s)",                       id, path ? path : "NULL");
+    ASSERT(path,    "Attempted to export sprite to PNG with NULL path (atlas: %p, id: %" PRIu32 ")",              (void *)atlas, id);
+    ASSERT(scratch, "Attempted to export sprite to PNG with NULL scratch (atlas: %p, id: %" PRIu32 ", path: %s)", (void *)atlas, id, path ? path : "NULL");
+    if   (!atlas || id >= atlas->sprite_cnt || !path || !scratch) return EINVAL;
+    if   (!overwrite && _asset_file_exists(path))                 return EIO;
+
+    return _asset_export_rect_png(atlas, atlas->sprites[id].px, path, scratch);
+}
+
+res_t asset_export_atlas_png(const asset_atlas_t *atlas, const char *path, bool overwrite, arena_t *scratch) {
+    ASSERT(atlas,   "Attempted to export atlas to PNG from NULL asset_atlas (path: %s)",                       path ? path : "NULL");
+    ASSERT(path,    "Attempted to export atlas to PNG with NULL path (atlas: %p)",              (void *)atlas);
+    ASSERT(scratch, "Attempted to export atlas to PNG with NULL scratch (atlas: %p, path: %s)", (void *)atlas, path ? path : "NULL");
+    if   (!atlas || !path || !scratch)            return EINVAL;
     if   (!overwrite && _asset_file_exists(path)) return EIO;
 
-    int stride_bytes = (int)atlas->size.x * (int)sizeof(uint32_t);
-    int ok           = stbi_write_png(path, atlas->size.x, atlas->size.y, 4, atlas->pixels, stride_bytes);
-
-    return ok ? OK : EIO;
+    aabb2i rect = aabb_pos_size(vec2i_splat(0), atlas->size);
+    return _asset_export_rect_png(atlas, rect, path, scratch);
 }
 
 /* ============================================================================================== */

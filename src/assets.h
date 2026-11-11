@@ -543,7 +543,8 @@ Returns:
 - `EIO`    if filesystem write fails, or if file exists and `overwrite` is `false`.
 ====================
 */
-res_t asset_export_sprite_png(const asset_atlas_t *atlas, asset_sprite_id_t id, const char *path, bool overwrite);
+res_t asset_export_sprite_png(const asset_atlas_t *atlas, asset_sprite_id_t id, const char *path,
+                              bool overwrite, arena_t *scratch);
 
 /*
 ====================
@@ -559,7 +560,7 @@ Returns:
 - `EIO`    if filesystem write fails, or if file exists and `overwrite` is `false`.
 ====================
 */
-res_t asset_export_atlas_png(const asset_atlas_t *atlas, const char *path, bool overwrite);
+res_t asset_export_atlas_png(const asset_atlas_t *atlas, const char *path, bool overwrite, arena_t *scratch);
 
 /* ============================================================================================== */
 /* >MUTATIONS                                                                                     */
