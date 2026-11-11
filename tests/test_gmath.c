@@ -326,5 +326,24 @@ int main(void) {
         TEST_ASSERT(!aabb_valid(aabb3f(vec3f(0, 0, 2), vec3f(1, 1, 1))), "inverted Z 3D float box exp false");
     } TEST_CASE_END();
 
+    TEST_CASE("mat4f_compose", "composes transforms in column-vector order") {
+        mat4f translation = mat4f_trans(vec3f(10, 20, 0));
+        mat4f rotation = mat4f_rotz(GMATH_HALFPI);
+        vec4f point = vec4f(2, 0, 0, 1);
+        vec4f translated = mat4f_mul_vec4f(mat4f_mul(translation, rotation), point);
+        vec4f rotated = mat4f_mul_vec4f(mat4f_mul(rotation, translation), point);
+        TEST_ASSERT(feq(translated.x, 10) && feq(translated.y, 22), "rotation then translation yields (10,22)");
+        TEST_ASSERT(feq(rotated.x, -20) && feq(rotated.y, 12), "translation then rotation yields (-20,12)");
+    } TEST_CASE_END();
+
+    TEST_CASE("quatf_antipodal", "interpolates equivalent opposite-sign quaternions") {
+        quatf q = quatf_axis_angle(vec3f(0, 0, 1), GMATH_HALFPI);
+        quatf opposite = quatf(-q.x, -q.y, -q.z, -q.w);
+        quatf mid = quatf_slerp(q, opposite, 0.5f);
+        vec3f rotated = quatf_mul_vec3(mid, vec3f(1, 0, 0));
+        TEST_ASSERT(feq(rotated.x, 0) && feq(rotated.y, 1) && feq(rotated.z, 0),
+                    "equivalent endpoints preserve the 90-degree orientation");
+    } TEST_CASE_END();
+
     TEST_END();
 }
