@@ -1,5 +1,4 @@
 #include "core.h"
-#include "ecs.h"
 #include "reflect.h"
 #include "test.h"
 
@@ -99,6 +98,28 @@ int main(void) {
                 TEST_ASSERT(field->cnt  >= 1,                                       "comp '%s' field '%s' cnt <=0",                                 comp->name, field->name);
                 TEST_ASSERT(field->size == field->cnt * type_elem_szs[field->type], "comp '%s' field '%s' size (%uB) != cnt (%u) * elem_sz (%zuB)", comp->name, field->name, field->size, field->cnt, type_elem_szs[field->type]);
             }
+        }
+    } TEST_CASE_END();
+
+    TEST_CASE("reflect_defaults", "matches concrete public defaults and field offsets") {
+        const comp_meta_t *meta = reflect_comp_by_id(COMP_trans3d);
+        TEST_ASSERT(meta != NULL && meta->size == sizeof(trans3d), "trans3d metadata matches public type");
+        if (meta && meta->def_val) {
+            trans3d value;
+            memcpy(&value, meta->def_val, sizeof(value));
+            TEST_ASSERT(value.qw == 0.0f && value.qx == 0.0f && value.qy == 0.0f && value.qz == 0.0f,
+                        "default quaternion matches documented zero sentinel");
+            TEST_ASSERT(value.scale_x == 1.0f && value.scale_y == 1.0f && value.scale_z == 1.0f,
+                        "default 3D scale is one");
+        }
+        meta = reflect_comp_by_id(COMP_tag);
+        TEST_ASSERT(meta != NULL && meta->field_cnt == 1, "tag exposes one field");
+        if (meta && meta->field_cnt == 1) {
+            const field_meta_t *field = &meta->fields[0];
+            TEST_ASSERT(strcmp(field->name, "name") == 0 && field->type == TYPE_STR, "tag name is a string field");
+            TEST_ASSERT(field->off == offsetof(tag, name) && field->size == sizeof(((tag *)0)->name),
+                        "tag string metadata matches C layout");
+            TEST_ASSERT(field->cnt == 32, "tag string capacity is 32 bytes");
         }
     } TEST_CASE_END();
 
