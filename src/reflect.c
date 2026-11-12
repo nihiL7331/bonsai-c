@@ -71,6 +71,8 @@ and provides fast O(1) ID lookups and O(N) name resolution.
         };
 */
 
+#define REQUIRES(...)
+#define EXCLUDES(...)
 #define COMP(NAME)               const NAME NAME##_def = {
 #define FIELD(T, NAME,      ...) .NAME = __VA_ARGS__,
 #define ARRAY(T, NAME, CNT, ...) .NAME = __VA_ARGS__,
@@ -82,6 +84,8 @@ and provides fast O(1) ID lookups and O(N) name resolution.
 #undef ARRAY
 #undef FIELD
 #undef COMP
+#undef EXCLUDES
+#undef REQUIRES
 
 /* ============================================================================================== */
 /* >FIELD META GEN                                                                                */
@@ -118,6 +122,8 @@ and provides fast O(1) ID lookups and O(N) name resolution.
         }
 */
 
+#define REQUIRES(...)
+#define EXCLUDES(...)
 #define COMP(NAME)                                                                                 \
     static const field_meta_t *s_get_##NAME##_fields(uint16_t *out_cnt) {                          \
         typedef NAME _curr_comp_t;                                                                 \
@@ -140,18 +146,48 @@ and provides fast O(1) ID lookups and O(N) name resolution.
 #undef _FIELD_META_4
 #undef _FIELD_META_3
 #undef COMP
+#undef EXCLUDES
+#undef REQUIRES
 
 /* ============================================================================================== */
 /* >API                                                                                           */
 /* ============================================================================================== */
 
 static comp_meta_t s_comp_reg[COMP_CNT];
-static bool        s_reg_init = false;
+static bool        s_reg_init   = false;
+static res_t       s_reg_result = EINVAL;
+
+/* builds prerequisites and reserve dependencies */
+static res_t _reflect_constraints_build(void) {
+    for (uint32_t i = 0; i < COMP_CNT; ++i)
+        s_comp_reg[i].required_by_mask = 0;
+
+    /* compute closure for prereqs */
+    for (uint32_t k = 0; k < COMP_CNT; ++k)
+        for (uint32_t i = 0; i < COMP_CNT; ++i)
+            if (s_comp_reg[i].requires_mask & BIT(k)) s_comp_reg[i].requires_mask |= s_comp_reg[k].requires_mask;
+
+    for (uint32_t i = 0; i < COMP_CNT; ++i) {
+        comp_meta_t *comp = &s_comp_reg[i];
+
+        if (comp->requires_mask & BIT(i)) return EINVAL;
+
+        uint64_t grp = BIT(i) | comp->requires_mask;
+
+        for (uint32_t j = 0; j < COMP_CNT; ++j) {
+            if ((grp & BIT(j)) && (s_comp_reg[j].excludes_mask & grp)) return EINVAL;
+            if (comp->requires_mask & BIT(j))                          s_comp_reg[j].required_by_mask |= BIT(i);
+        }
+    }
+
+    return OK;
+}
 
 static void _reflect_init_lazy(void) {
     if (s_reg_init) return;
-    s_reg_init = true;
 
+#define REQUIRES(...)
+#define EXCLUDES(...)
 #define COMP(NAME)                                                                                 \
     do {                                                                                           \
         uint16_t cnt = 0;                                                                          \
@@ -175,12 +211,45 @@ static void _reflect_init_lazy(void) {
 #undef ARRAY
 #undef FIELD
 #undef COMP
+#undef EXCLUDES
+#undef REQUIRES
+
+#define REQUIRES(COMPONENT, PREREQUISITE)                                                          \
+    s_comp_reg[COMP_##COMPONENT].requires_mask |= BIT(COMP_##PREREQUISITE);
+#define EXCLUDES(A, B)                                                                             \
+    do {                                                                                           \
+        s_comp_reg[COMP_##A].excludes_mask |= BIT(COMP_##B);                                       \
+        s_comp_reg[COMP_##B].excludes_mask |= BIT(COMP_##A);                                       \
+    } while (0);
+#define COMP(NAME)
+#define FIELD(...)
+#define ARRAY(...)
+#define COMP_END(NAME)
+
+#include "components.def"
+
+#undef COMP_END
+#undef ARRAY
+#undef FIELD
+#undef COMP
+#undef EXCLUDES
+#undef REQUIRES
+
+    s_reg_result = _reflect_constraints_build();
+    s_reg_init   = true;
+}
+
+res_t reflect_validate_schema(void) {
+    _reflect_init_lazy();
+    return s_reg_result;
 }
 
 const comp_meta_t *reflect_comp_by_id(comp_id_t id) {
     ASSERT(id < COMP_CNT, "Attempted to grab component by out-of-range ID");
     if (id >= COMP_CNT) return NULL;
+
     _reflect_init_lazy();
+    if (s_reg_result != OK) return NULL;
 
     return &s_comp_reg[id];
 }
@@ -188,7 +257,9 @@ const comp_meta_t *reflect_comp_by_id(comp_id_t id) {
 const comp_meta_t *reflect_comp_by_name(const char *name) {
     ASSERT(name, "Attempted to grab component by NULL name");
     if (!name) return NULL;
+
     _reflect_init_lazy();
+    if (s_reg_result != OK) return NULL;
 
     for (size_t i = 0; i < COMP_CNT; ++i)
         if (strcmp(s_comp_reg[i].name, name) == 0) return &s_comp_reg[i];

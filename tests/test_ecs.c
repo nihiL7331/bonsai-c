@@ -118,6 +118,7 @@ int main(void) {
     TEST_CASE("ecs_add_default", "initializes reflection defaults when val=NULL") {
         reset_world();
         entity_handle_t e = ecs_spawn();
+        TEST_ASSERT(ecs_add(e, trans2d, NULL) != NULL, "sprite prerequisite added");
         sprite2d       *s = ecs_add(e, sprite2d, NULL);
 
         TEST_ASSERT(s,                       "ecs_add returned NULL for sprite2d");
@@ -229,7 +230,7 @@ int main(void) {
 
         ecs_add(e1, trans2d,  NULL);
         ecs_add(e2, trans2d,  NULL);
-        ecs_add(e3, sprite2d, NULL);
+        ecs_add(e3, tag, NULL);
 
         ecs_view_t v = ecs_query_comp(trans2d);
         TEST_ASSERT(v.cnt == 2U,                        "expected 2 matches, got %u", v.cnt);
@@ -275,10 +276,10 @@ int main(void) {
         ecs_add(e2, collider2d, NULL);
         ecs_add(e2, rb2d,       NULL);
         ecs_add(e2, tag,        NULL);
-        ecs_add(e2, trans3d,    NULL);
+        ecs_add(e2, hierarchy,  NULL);
 
         ecs_view_t v5 = ecs_query_comp(trans2d, sprite2d, collider2d, rb2d, tag);
-        ecs_view_t v6 = ecs_query_comp(trans2d, sprite2d, collider2d, rb2d, tag, trans3d);
+        ecs_view_t v6 = ecs_query_comp(trans2d, sprite2d, collider2d, rb2d, tag, hierarchy);
 
         TEST_ASSERT(v5.cnt == 2U,     "expected 2 matches for 5-comp query, got %u", v5.cnt);
         TEST_ASSERT(v6.cnt == 1U,     "expected 1 match for 6-comp query, got %u",   v6.cnt);
@@ -403,14 +404,14 @@ int main(void) {
         ecs_sync();
         entity_handle_t current = ecs_spawn();
         TEST_ASSERT(entity_idx(current) == entity_idx(old), "entity index reused");
-        TEST_ASSERT(ecs_add(current, sprite2d, NULL) != NULL, "replacement sprite added");
+        TEST_ASSERT(ecs_add(current, tag, NULL) != NULL, "replacement tag added");
         TEST_ASSERT(ecs_world_snapshot() == OK, "replacement snapshot succeeds");
-        ecs_del(current, sprite2d);
+        ecs_del(current, tag);
         ecs_sync();
         TEST_ASSERT(ecs_world_rollback() == OK, "replacement snapshot restored");
         TEST_ASSERT(!ecs_is_alive(old) && ecs_is_alive(current), "replacement generation restored");
-        TEST_ASSERT(ecs_has(current, sprite2d) && !ecs_has(current, trans2d), "replacement component membership restored");
-        ecs_view_t view = ecs_query_comp(sprite2d);
+        TEST_ASSERT(ecs_has(current, tag) && !ecs_has(current, trans2d), "replacement component membership restored");
+        ecs_view_t view = ecs_query_comp(tag);
         TEST_ASSERT(view.cnt == 1 && view.ents[0] == current, "restored sparse mapping supports queries");
     } TEST_CASE_END();
 
@@ -572,6 +573,204 @@ int main(void) {
         TEST_ASSERT(ABS(wt.position.z - 21.0f) < 1e-4f, "expected world z ~ 21.0, got %.4f", wt.position.z);
         TEST_ASSERT(ABS(wt.scale.x    - 1.0f)  < 1e-4f, "expected world scale_x ~ 1.0, got %.4f", wt.scale.x);
     } TEST_CASE_END();
+
+    TEST_CASE("ecs_pending_delete", "deduplicates and removes dependents before parents") {
+        ecs_world_t *world = reset_world();
+        entity_handle_t entity = ecs_spawn();
+        TEST_ASSERT(ecs_add(entity, trans2d, NULL) != NULL, "transform added");
+        TEST_ASSERT(ecs_add(entity, sprite2d, NULL) != NULL, "sprite added");
+        ecs_del(entity, sprite2d);
+        ecs_del(entity, sprite2d);
+        ecs_del(entity, trans2d);
+        TEST_ASSERT(world->cmd_cnt == 2, "duplicate deletion produces no extra command");
+        TEST_ASSERT(ecs_has(entity, sprite2d) && ecs_has(entity, trans2d), "physical membership persists until sync");
+        ecs_sync();
+        TEST_ASSERT(!ecs_has(entity, sprite2d) && !ecs_has(entity, trans2d), "both components removed");
+        TEST_ASSERT(ecs_add(entity, trans3d, NULL) != NULL, "opposite transform allowed after sync");
+        TEST_ASSERT(ecs_add(entity, mesh3d, NULL) != NULL, "3D dependent added");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_pending_rollback", "rollback discards queued removals and pending bits") {
+        reset_world();
+        entity_handle_t entity = ecs_spawn();
+        TEST_ASSERT(ecs_add(entity, trans2d, NULL) != NULL, "transform added");
+        TEST_ASSERT(ecs_add(entity, sprite2d, NULL) != NULL, "sprite added");
+        TEST_ASSERT(ecs_world_snapshot() == OK, "snapshot created");
+        ecs_del(entity, sprite2d);
+        ecs_del(entity, trans2d);
+        TEST_ASSERT(ecs_world_rollback() == OK, "snapshot restored");
+        TEST_ASSERT(ecs_add(entity, sprite2d, NULL) != NULL, "restored sprite can be updated");
+        ecs_sync();
+        TEST_ASSERT(ecs_has(entity, trans2d) && ecs_has(entity, sprite2d), "discarded removals cannot run later");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_pending_destroy", "clears pending state before entity index reuse") {
+        reset_world();
+        entity_handle_t entity = ecs_spawn();
+        TEST_ASSERT(ecs_add(entity, trans2d, NULL) != NULL, "transform added");
+        TEST_ASSERT(ecs_add(entity, sprite2d, NULL) != NULL, "sprite added");
+        ecs_del(entity, sprite2d);
+        ecs_destroy(entity);
+        ecs_sync();
+        entity_handle_t replacement = ecs_spawn();
+        TEST_ASSERT(entity_idx(replacement) == entity_idx(entity), "index recycled");
+        TEST_ASSERT(ecs_add(replacement, trans2d, NULL) != NULL, "replacement transform added");
+        TEST_ASSERT(ecs_add(replacement, sprite2d, NULL) != NULL, "replacement sprite has no stale pending bit");
+    } TEST_CASE_END();
+
+#ifndef DEBUG
+    TEST_CASE("ecs_add_constraints", "rejects missing prerequisites and exclusions") {
+        ecs_world_t *world = reset_world();
+        entity_handle_t entity = ecs_spawn();
+        TEST_ASSERT(ecs_add(entity, sprite2d, NULL) == NULL, "missing prerequisite rejected");
+        TEST_ASSERT(world->mgr.comp_mask[entity_idx(entity)] == 0, "rejection preserves empty membership");
+        TEST_ASSERT(ecs_add(entity, trans2d, NULL) != NULL, "2D transform added");
+        uint64_t before = world->mgr.comp_mask[entity_idx(entity)];
+        TEST_ASSERT(ecs_add(entity, trans3d, NULL) == NULL, "excluded transform rejected");
+        TEST_ASSERT(world->mgr.comp_mask[entity_idx(entity)] == before, "exclusion rejection preserves membership");
+        entity = ecs_spawn();
+        TEST_ASSERT(ecs_add(entity, trans3d, NULL) != NULL, "3D transform added");
+        TEST_ASSERT(ecs_add(entity, trans2d, NULL) == NULL, "reverse exclusion order rejected");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_del_constraints", "rejects operations against pending removals") {
+        ecs_world_t *world = reset_world();
+        entity_handle_t entity = ecs_spawn();
+        TEST_ASSERT(ecs_add(entity, trans2d, NULL) != NULL, "transform added");
+        TEST_ASSERT(ecs_add(entity, sprite2d, NULL) != NULL, "sprite added");
+        ecs_del(entity, trans2d);
+        TEST_ASSERT(world->cmd_cnt == 0, "required transform removal rejected");
+        ecs_del(entity, sprite2d);
+        TEST_ASSERT(ecs_add(entity, sprite2d, NULL) == NULL, "re-adding pending component rejected");
+        ecs_del(entity, trans2d);
+        TEST_ASSERT(ecs_add(entity, rb2d, NULL) == NULL, "pending transform cannot satisfy prerequisites");
+        TEST_ASSERT(ecs_add(entity, trans3d, NULL) == NULL, "pending 2D transform still participates in exclusions");
+        TEST_ASSERT(world->cmd_cnt == 2, "rejected additions preserve queue");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_queue_failure", "queue exhaustion preserves removal and hierarchy") {
+        ecs_world_t *world = reset_world();
+        entity_handle_t parent = ecs_spawn();
+        entity_handle_t child = ecs_spawn();
+        TEST_ASSERT(ecs_add(parent, trans2d, NULL) != NULL, "transform added");
+        TEST_ASSERT(ecs_add(parent, sprite2d, NULL) != NULL, "sprite added");
+        TEST_ASSERT(ecs_set_parent(child, parent) == OK, "child attached");
+        _Alignas(CACHE_LINE_SZ) uint8_t buffer[CACHE_LINE_SZ];
+        arena_t exhausted;
+        TEST_ASSERT(arena_init(&exhausted, buffer, sizeof(buffer)) == OK, "small arena initialized");
+        TEST_ASSERT(arena_alloc(&exhausted, sizeof(buffer)) != NULL, "small arena filled");
+        arena_t *scratch = world->scratch;
+        world->scratch = &exhausted;
+
+        ecs_del(parent, sprite2d);
+        TEST_ASSERT(world->cmd_cnt == 0, "failed removal appends no command");
+        TEST_ASSERT(ecs_add(parent, sprite2d, NULL) != NULL, "failed removal leaves no pending bit");
+        ecs_destroy(parent);
+        TEST_ASSERT(ecs_is_alive(parent) && ecs_is_alive(child), "failed destruction preserves subtree liveness");
+        TEST_ASSERT(ecs_get(parent, hierarchy)->child_cnt == 1, "failed destruction preserves child count");
+        TEST_ASSERT(ecs_get(child, hierarchy)->parent == parent, "failed destruction preserves parent link");
+        TEST_ASSERT(world->cmd_cnt == 0 && exhausted.off == sizeof(buffer), "queue and arena offsets unchanged");
+        world->scratch = scratch;
+    } TEST_CASE_END();
+#endif
+
+    TEST_CASE("ecs_dim_reparent", "moves neutral subtrees between matching roots") {
+        reset_world();
+        entity_handle_t first = ecs_spawn();
+        entity_handle_t second = ecs_spawn();
+        entity_handle_t folder = ecs_spawn();
+        entity_handle_t leaf = ecs_spawn();
+        TEST_ASSERT(ecs_add(first, trans2d, &trans2d(vec2f(10, 0), 0, 1)) != NULL, "first root added");
+        TEST_ASSERT(ecs_add(second, trans2d, &trans2d(vec2f(20, 0), 0, 1)) != NULL, "second root added");
+        TEST_ASSERT(ecs_add(leaf, trans2d, &trans2d(vec2f(1, 0), 0, 1)) != NULL, "leaf transform added");
+        TEST_ASSERT(ecs_set_parent(leaf, folder) == OK, "leaf attached to neutral folder");
+        TEST_ASSERT(ecs_set_parent(folder, first) == OK, "folder attached to first root");
+        TEST_ASSERT(ecs_set_parent(folder, second) == OK, "folder reparented to matching root");
+        trans2d world_transform;
+        TEST_ASSERT(ecs_get_world_trans(leaf, &world_transform), "leaf world transform resolved");
+        TEST_ASSERT(world_transform.position.x == 21, "reparented leaf uses second root transform");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_dim_rollback", "restores dimension counts with hierarchy snapshots") {
+        reset_world();
+        entity_handle_t root = ecs_spawn();
+        entity_handle_t child = ecs_spawn();
+        TEST_ASSERT(ecs_add(child, trans2d, NULL) != NULL, "2D child added");
+        TEST_ASSERT(ecs_set_parent(child, root) == OK, "child attached to neutral root");
+        TEST_ASSERT(ecs_world_snapshot() == OK, "snapshot created");
+        TEST_ASSERT(ecs_remove_parent(child) == OK, "child detached");
+        ecs_del(child, trans2d);
+        ecs_sync();
+        TEST_ASSERT(ecs_add(child, trans3d, NULL) != NULL, "detached child changed dimension");
+        TEST_ASSERT(ecs_world_rollback() == OK, "snapshot restored");
+        TEST_ASSERT(ecs_has(child, trans2d) && !ecs_has(child, trans3d), "snapshot restores transform membership");
+        TEST_ASSERT(ecs_remove_parent(child) == OK, "restored child detached");
+        TEST_ASSERT(ecs_add(root, trans3d, NULL) != NULL, "now-neutral root accepts 3D transform");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_dim_destroy", "subtree destruction releases its tree dimension") {
+        reset_world();
+        entity_handle_t root = ecs_spawn();
+        entity_handle_t branch = ecs_spawn();
+        entity_handle_t leaf = ecs_spawn();
+        TEST_ASSERT(ecs_add(branch, trans2d, NULL) != NULL, "branch transform added");
+        TEST_ASSERT(ecs_add(leaf, trans2d, NULL) != NULL, "leaf transform added");
+        TEST_ASSERT(ecs_set_parent(leaf, branch) == OK, "leaf attached");
+        TEST_ASSERT(ecs_set_parent(branch, root) == OK, "branch attached to neutral root");
+        ecs_destroy(branch);
+        TEST_ASSERT(ecs_add(root, trans3d, NULL) != NULL, "root changes dimension after subtree detaches");
+        ecs_sync();
+        TEST_ASSERT(ecs_has(root, trans3d) && !ecs_is_alive(leaf), "destruction sync preserves surviving root");
+    } TEST_CASE_END();
+
+#ifndef DEBUG
+    TEST_CASE("ecs_dim_parent", "rejects mixed trees through neutral nodes") {
+        reset_world();
+        entity_handle_t root = ecs_spawn();
+        entity_handle_t child2d = ecs_spawn();
+        entity_handle_t folder = ecs_spawn();
+        entity_handle_t child3d = ecs_spawn();
+        TEST_ASSERT(ecs_add(child2d, trans2d, NULL) != NULL, "2D child added");
+        TEST_ASSERT(ecs_add(child3d, trans3d, NULL) != NULL, "3D child added");
+        TEST_ASSERT(ecs_set_parent(child2d, root) == OK, "2D child attached to neutral root");
+        TEST_ASSERT(ecs_set_parent(child3d, folder) == OK, "3D child attached to neutral folder");
+        TEST_ASSERT(ecs_set_parent(folder, root) == EINVAL, "opposite-dimensional subtree rejected");
+        TEST_ASSERT(ecs_get(child3d, hierarchy)->parent == folder, "rejected move preserves subtree");
+        TEST_ASSERT(ecs_get(folder, hierarchy)->parent == ENTITY_NULL, "rejected move preserves root");
+        TEST_ASSERT(ecs_get(root, hierarchy)->child_cnt == 1, "rejected move preserves destination");
+        TEST_ASSERT(ecs_add(root, trans3d, NULL) == NULL, "late root transform checks 2D descendants");
+        TEST_ASSERT(ecs_add(folder, trans2d, NULL) == NULL, "late folder transform checks 3D descendants");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_dim_pending", "dimension changes wait for physical removal") {
+        reset_world();
+        entity_handle_t root = ecs_spawn();
+        entity_handle_t child = ecs_spawn();
+        TEST_ASSERT(ecs_add(child, trans2d, NULL) != NULL, "2D child added");
+        TEST_ASSERT(ecs_set_parent(child, root) == OK, "child attached");
+        ecs_del(child, trans2d);
+        TEST_ASSERT(ecs_add(root, trans3d, NULL) == NULL, "pending transform still constrains tree");
+        ecs_sync();
+        TEST_ASSERT(ecs_add(root, trans3d, NULL) != NULL, "physical removal releases tree dimension");
+    } TEST_CASE_END();
+
+    TEST_CASE("ecs_dim_links", "guards linked and pending hierarchy components") {
+        ecs_world_t *world = reset_world();
+        entity_handle_t root = ecs_spawn();
+        entity_handle_t child = ecs_spawn();
+        TEST_ASSERT(ecs_set_parent(child, root) == OK, "child attached");
+        ecs_del(root, hierarchy);
+        TEST_ASSERT(world->cmd_cnt == 0, "linked hierarchy removal rejected");
+        hierarchy reset = hierarchy_def;
+        TEST_ASSERT(ecs_add(child, hierarchy, &reset) == NULL, "raw topology reset rejected");
+        TEST_ASSERT(ecs_get(child, hierarchy)->parent == root, "rejection preserves parent");
+        TEST_ASSERT(ecs_remove_parent(child) == OK, "child detached");
+        ecs_del(child, hierarchy);
+        TEST_ASSERT(ecs_set_parent(child, root) == EINVAL, "pending hierarchy cannot be reattached");
+        ecs_sync();
+        TEST_ASSERT(!ecs_has(child, hierarchy), "isolated hierarchy removed safely");
+    } TEST_CASE_END();
+#endif
 
     ecs_set_world(NULL);
     arena_free_vm(&s_perm_arena);

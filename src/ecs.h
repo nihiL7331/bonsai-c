@@ -131,7 +131,12 @@ ecs_world_t
 Central ECS state container.
 Holds entity generation counters, component masks,
 dense/sparse pools, and deferred mutation command
-buffers. Backed by three arenas:
+buffers. Tracks pending removals separately from
+physical membership and snapshot manager state. Subtree counters include each node's
+own physical transform and all live descendants. Connected trees may contain
+neutral nodes but cannot mix 2D and 3D transforms. Counters are snapshotted.
+
+Backed by three arenas:
 - `perm`:    Persistent entity tables and component dense memory
 - `backup`:  Transactional mirror for rollback / state snapshots
 - `scratch`: Per-frame command buffers and query view allocations
@@ -146,6 +151,9 @@ typedef struct ecs_world {
     ecs_cmd_t   *cmd_buf; /* scratch-alloced */
     uint32_t     cmd_cnt;
     uint32_t     cmd_cap;
+    uint64_t     pending_removals[ECS_MAX_ENTITIES + 1];
+    uint32_t     subtree2d_cnt[ECS_MAX_ENTITIES + 1]; /* own + live descendant trans2d */
+    uint32_t     subtree3d_cnt[ECS_MAX_ENTITIES + 1]; /* own + live descendant trans3d */
 } ecs_world_t;
 
 /*
@@ -285,6 +293,7 @@ ecs_destroy
 
 Marks entity as dead immediately (`ENTITY_FLAG_DEAD`)
 and queues structural cleanup for the next `ecs_sync()` call.
+Reserves queue capacity before changing liveness or hierarchy links.
 Asserts entity is alive.
 ====================
 */
@@ -416,7 +425,11 @@ ecs_add_raw
 Attaches component `id` to entity `e`.
 If entity already owns the component, updates in-place.
 If `val == NULL`, initializes memory from reflection defaults (`meta->def_val`).
-Asserts entity is alive and pool capacity is sufficient.
+Asserts on missing prerequisites, exclusions, and re-addition while pending deletion.
+New transforms must agree with the whole connected tree, including pending removals.
+Hierarchy values may preserve existing links or initialize an isolated default;
+topology changes must use ecs_set_parent/ecs_remove_parent. Direct link writes are invalid.
+Release rejection returns `NULL` before mutation.
 
 Returns:
 - pointer to attached component memory in the dense pool if succeeded.
@@ -431,7 +444,10 @@ ecs_del_raw
 
 Queues a deferred removal of component `id` from
 entity `e` for the next `ecs_sync()`.
-Asserts entity is alive and component ID is valid.
+Asserts when effective dependents remain or hierarchy links are still connected.
+Transform removal releases its tree dimension only when ecs_sync removes the pool entry.
+Absent and already-pending components are no-ops.
+Release rejection preserves state.
 ====================
 */
 void  ecs_del_raw(entity_handle_t e, comp_id_t id);
@@ -453,13 +469,16 @@ Attaches `child` as a direct child of `parent` in the scene forest.
 If `parent == ENTITY_NULL`, detaches `child` via `ecs_remove_parent`.
 Lazily attaches `hierarchy` components to `child` and `parent` if not
 already owned. Walks `parent`s ancestor chain to reject cycles.
+Debug asserts and release rejects trees mixing 2D and 3D transforms, or either
+endpoint having a hierarchy component pending removal. Neutral nodes are allowed.
+Dimension checks and count updates walk ancestors; no descendant traversal is needed.
 If `child` already has a parent, unlinks it from the previous parent first.
 Asserts valid world and living handles in debug, returns result code in release.
 
 Returns:
 - `OK`     on successful parenting or no-op.
 - `EINVAL` if active world is `NULL`, `child` or `parent` is dead, `child == parent`,
-           or `child` is an ancestor of `parent` (cycle detected).
+           a cycle would form, dimensions conflict, or hierarchy removal is pending.
 - `EOOM`   if the `hierarchy` component pool is exhausted.
 ====================
 */

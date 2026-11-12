@@ -136,5 +136,41 @@ int main(void) {
         }
     } TEST_CASE_END();
 
+    TEST_CASE("reflect_constraints", "preserves requirements and reverse dependencies") {
+        const comp_meta_t *sprite = reflect_comp_by_id(COMP_sprite2d);
+        const comp_meta_t *mesh = reflect_comp_by_id(COMP_mesh3d);
+        const comp_meta_t *transform2d = reflect_comp_by_id(COMP_trans2d);
+        const comp_meta_t *transform3d = reflect_comp_by_id(COMP_trans3d);
+
+        TEST_ASSERT(sprite && mesh && transform2d && transform3d, "constraint metadata exists");
+        if (sprite && mesh && transform2d && transform3d) {
+            TEST_ASSERT((sprite->requires_mask & BIT(COMP_trans2d)) != 0, "sprite requires trans2d");
+            TEST_ASSERT((mesh->requires_mask & BIT(COMP_trans3d)) != 0, "mesh requires trans3d");
+            TEST_ASSERT((transform2d->required_by_mask & BIT(COMP_sprite2d)) != 0, "trans2d records sprite dependent");
+            TEST_ASSERT((transform3d->required_by_mask & BIT(COMP_mesh3d)) != 0, "trans3d records mesh dependent");
+        }
+
+        for (uint32_t i = 0; i < COMP_CNT; ++i) {
+            const comp_meta_t *component = reflect_comp_by_id((comp_id_t)i);
+            TEST_ASSERT(component != NULL, "component %u exists", i);
+            if (!component) continue;
+            uint64_t group = BIT(i) | component->requires_mask;
+            TEST_ASSERT((component->requires_mask & BIT(i)) == 0, "component %u has no dependency cycle", i);
+            for (uint32_t j = 0; j < COMP_CNT; ++j) {
+                const comp_meta_t *other = reflect_comp_by_id((comp_id_t)j);
+                if (!other) continue;
+                if (component->requires_mask & BIT(j)) {
+                    TEST_ASSERT((component->requires_mask & other->requires_mask) == other->requires_mask,
+                                "component %u includes transitive requirements of %u", i, j);
+                    TEST_ASSERT((other->required_by_mask & BIT(i)) != 0, "reverse dependency %u -> %u exists", j, i);
+                }
+                TEST_ASSERT(((component->excludes_mask & BIT(j)) != 0) == ((other->excludes_mask & BIT(i)) != 0),
+                            "exclusion %u/%u is symmetric", i, j);
+                if (group & BIT(j))
+                    TEST_ASSERT((other->excludes_mask & group) == 0, "required group for %u has no exclusions", i);
+            }
+        }
+    } TEST_CASE_END();
+
     TEST_END();
 }

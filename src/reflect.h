@@ -53,6 +53,8 @@ typedef uint64_t    entity_handle_t;
         } collider2d;
 */
 
+#define REQUIRES(...)
+#define EXCLUDES(...)
 #define COMP(NAME)                       typedef struct NAME {
 #define FIELD(T, NAME, ...)              T NAME;
 #define ARRAY(T, NAME, CNT, ...)         T NAME[CNT];
@@ -64,6 +66,8 @@ typedef uint64_t    entity_handle_t;
 #undef ARRAY
 #undef FIELD
 #undef COMP
+#undef EXCLUDES
+#undef REQUIRES
 
 /* ============================================================================================== */
 /* >COMP ID ENUM GEN                                                                              */
@@ -97,6 +101,8 @@ Terminated by `COMP_CNT` representing total registered component count.
 ====================
 */
 typedef enum comp_id {
+#define REQUIRES(...)
+#define EXCLUDES(...)
 #define COMP(NAME) COMP_##NAME,
 #define FIELD(...)
 #define ARRAY(...)
@@ -108,8 +114,12 @@ typedef enum comp_id {
 #undef ARRAY
 #undef FIELD
 #undef COMP
+#undef EXCLUDES
+#undef REQUIRES
     COMP_CNT,
 } comp_id_t;
+
+_Static_assert(COMP_CNT <= 64, "Component masks support at most 64 types");
 
 /* ============================================================================================== */
 /* >DEF STRUCT DECL GEN                                                                           */
@@ -133,6 +143,8 @@ typedef enum comp_id {
         extern const collider2d collider2d_def;
 */
 
+#define REQUIRES(...)
+#define EXCLUDES(...)
 #define COMP(NAME) extern const NAME NAME##_def;
 #define FIELD(T, NAME, ...)
 #define ARRAY(T, NAME, CNT, ...)
@@ -144,6 +156,8 @@ typedef enum comp_id {
 #undef ARRAY
 #undef FIELD
 #undef COMP
+#undef EXCLUDES
+#undef REQUIRES
 
 /* ============================================================================================== */
 /* >REFLECT META STRUCTS                                                                          */
@@ -216,18 +230,24 @@ comp_meta_t
 
 Component reflection metadata descriptor.
 Stores:
-- component name `name`      (string identifier, e.g. "trans2d")
-- field list     `fields`    (pointer to array of `field_meta_t` descriptors)
-- default value  `def_val`   (pointer to read-only default struct instance)
-- component ID   `id`        (numeric identifier `comp_id_t`)
-- struct size    `size`      (total byte size via `sizeof`)
-- field count    `field_cnt` (number of entries in `fields` array)
+- component name  `name`             (string identifier, e.g. "trans2d")
+- field list      `fields`           (pointer to array of `field_meta_t` descriptors)
+- default value   `def_val`          (pointer to read-only default struct instance)
+- dependency mask `requires_mask`    (direct and transitive prerequisite component bits)
+- banned mask     `excludes_mask`    (symmetrically excluded component bits)
+- dependent mask  `required_by_mask` (components depending directly or transitively on this component)
+- component ID    `id`               (numeric identifier `comp_id_t`)
+- struct size     `size`             (total byte size via `sizeof`)
+- field count     `field_cnt`        (number of entries in `fields` array)
 ====================
 */
 typedef struct comp_meta {
     const char          *name;
     const field_meta_t *fields;
     const void         *def_val;
+    uint64_t            requires_mask;
+    uint64_t            excludes_mask;
+    uint64_t            required_by_mask;
     comp_id_t           id;
     uint16_t            size;
     uint16_t            field_cnt;
@@ -252,6 +272,22 @@ typedef struct comp_meta {
 /* ============================================================================================== */
 /* >API                                                                                           */
 /* ============================================================================================== */
+
+/*
+====================
+reflect_validate_schema
+
+Initializes and validates the compiled component schema.
+Boundary validation returns an error in both debug and release.
+The result is cached because the schema is immutable.
+
+Returns:
+- `OK`     if dependencies and exclusions are consistent.
+- `EINVAL` if prerequisites contain a cycle, a component excludes itself,
+           or a component's required group contains mutually exclusive members.
+====================
+*/
+res_t reflect_validate_schema(void);
 
 /*
 ====================

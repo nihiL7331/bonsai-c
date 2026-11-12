@@ -41,6 +41,8 @@ COMP(trans2d)
     FIELD(float, scale,    1.0f)
 COMP_END(trans2d)
 
+EXCLUDES(trans2d, trans3d)
+
 /*
 ====================
 trans3d
@@ -78,6 +80,7 @@ Stores:
 - `color`:     multiplicative RGBA tint packed as 0xRRGGBBAA,                     default: 0xFFFFFFFF.
 ====================
 */
+REQUIRES(sprite2d, trans2d)
 COMP(sprite2d)
     FIELD(uint16_t, id,        0x0000)
     FIELD(uint8_t,  layer,     0x00)
@@ -97,6 +100,7 @@ Stores:
 - `color`:   multiplicative RGBA tint packed as 0xRRGGBBAA,  default: 0xFFFFFFFF.
 ====================
 */
+REQUIRES(mesh3d, trans3d)
 COMP(mesh3d)
     FIELD(uint16_t, mesh_id, 0x0000)
     FIELD(uint16_t, tex_id,  0x0000)
@@ -120,6 +124,7 @@ Stores:
 - `cone_out`:  spot half-angle for zero intensity in radians,          default: 0.5.
 ====================
 */
+REQUIRES(light3d, trans3d)
 COMP(light3d)
     FIELD(uint8_t,  type,      1)
     ARRAY(uint8_t, _pad, 3,    {0})
@@ -154,6 +159,7 @@ Stores:
 - `shape`:        0 = box, 1 = circle, 2 = capsule,                default: 0.
 ====================
 */
+REQUIRES(collider2d, trans2d)
 COMP(collider2d)
     FIELD(vec2f,    half_extents, {{ 0.0f, 0.0f }})
     FIELD(vec2f,    offset,       {{ 0.0f, 0.0f }})
@@ -184,6 +190,7 @@ Stores:
 - `shape`:        0 = box, 1 = sphere, 2 = capsule,                   default: 0.
 ====================
 */
+REQUIRES(collider3d, trans3d)
 COMP(collider3d)
     FIELD(vec3f,    half_extents, {{ 0.0f, 0.0f, 0.0f }})
     FIELD(vec3f,    offset,       {{ 0.0f, 0.0f, 0.0f }})
@@ -207,6 +214,7 @@ Stores:
                       Positive values multiply velocity by 1 / (1 + drag * dt), default: 0
 ====================
 */
+REQUIRES(rb2d, trans2d)
 COMP(rb2d)
     FIELD(vec2f, velocity,         {{ 0.0f, 0.0f }})
     FIELD(float, angular_velocity, 0.0f)
@@ -233,6 +241,7 @@ Stores:
                       1 / (1 + ang_drag * dt),                              default: 0.
 ====================
 */
+REQUIRES(rb3d, trans3d)
 COMP(rb3d)
     FIELD(vec3f, velocity,         {{ 0.0f, 0.0f, 0.0f }})
     FIELD(vec3f, angular_velocity, {{ 0.0f, 0.0f, 0.0f }})
