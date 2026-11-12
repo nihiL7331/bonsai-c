@@ -39,6 +39,7 @@ Semantic version string of the engine in `MAJOR.MINOR.PATCH` format.
 
 #include "arena.h"
 #include "assets.h"
+#include "capture.h"
 #include "core.h"
 #include "ecs.h"
 #include "gmath.h"
